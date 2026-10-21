@@ -36,15 +36,17 @@ setupGitHubBackup({
  async onRestore(backup){pendingImport=backup;$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。\`;$('#import-dialog').showModal();}
 });\n`;
 let html=await readFile('public/diary.html','utf8');
-html=replace(html,'<span id="day-count">完成清单 · 0 件</span>','<span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份">✓ 保存并备份</button><span id="save-backup-status" role="status" aria-live="polite"></span></div>');
+html=replace(html,'<span id="day-count">完成清单 · 0 件</span>','<span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button><span id="save-backup-status" role="status" aria-live="polite"></span></div>');
+html=replace(html,'<p>慢慢来，每一步都算数。</p>','');
+html=replace(html,'<span class="storage-label"><i></i> <span id="sync-state">云端记录</span><button id="retry-sync" hidden>重试</button></span>','<span id="sync-state" hidden>云端记录</span><button id="retry-sync" hidden>重试保存</button>');
 html=replace(html,'正在读取你的云端记录…','正在读取此浏览器的记录…');
 html=replace(html,'<a href="/login">返回登录</a>','<p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p>');
-html=replace(html,'<span id="sync-state">云端记录</span>','<span id="sync-state">本地记录</span>');
+html=replace(html,'<span id="sync-state" hidden>云端记录</span>','<span id="sync-state" hidden>本地记录</span>');
 html=replace(html,'<span id="account-label">我的账号</span><a id="logout" href="/signout-with-chatgpt?return_to=%2Flogin" target="_top">退出</a>','<span id="account-label" title="记录仅保存在此浏览器，不会跨设备同步">浏览器本地版</span>');
 html=html.replace(/^.*id="migration-banner".*\r?\n/m,'');
 html=replace(html,'给每一天，留一点成长的证据。','数据仅保存在当前浏览器，不跨设备同步。清理浏览器数据会删除记录，请定期导出备份。');
 html=replace(html,'<link rel="stylesheet"','<link rel="icon" href="favicon.svg"><link rel="stylesheet"');
-html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><p id="github-auto-status" role="status" style="font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere">自动备份待授权</p><input hidden id="import-file"');
+html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file"');
 html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
 app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
 html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);

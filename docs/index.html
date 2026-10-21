@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#287bb9"><meta name="description" content="记录每天完成的事，在日历里回顾自己的进步。"><title>日有所成 · 每一份完成，都值得被看见</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=320c206620a8-github1"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#287bb9"><meta name="description" content="记录每天完成的事，在日历里回顾自己的进步。"><title>日有所成 · 每一份完成，都值得被看见</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=2d80cb096bb5-github1"></head>
 <body class="auth-loading">
 <div id="session-loading" role="status"><span>✳</span><p id="loading-message">正在读取此浏览器的记录…</p><button id="reload-session" hidden>重新加载</button><p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p></div>
 <aside class="sidebar">
  <a class="brand" href="#today"><span class="brand-icon">✳</span><span>日有所成<small>MAKE ROOM FOR PROGRESS</small></span></a>
  <nav aria-label="主导航"><button class="nav active" id="nav-today"><span>◷</span> 每日记录</button><button class="nav" id="nav-review"><span>▤</span> 时光回顾</button></nav>
- <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><p>慢慢来，每一步都算数。</p><span class="storage-label"><i></i> <span id="sync-state">本地记录</span><button id="retry-sync" hidden>重试</button></span><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><p id="github-auto-status" role="status" style="font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere">自动备份待授权</p><input hidden id="import-file" type="file" accept=".json,application/json"></div>
+ <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><span id="sync-state" hidden>本地记录</span><button id="retry-sync" hidden>重试保存</button><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file" type="file" accept=".json,application/json"></div>
 </aside>
 <main>
  <header class="topbar"><span id="top-date"></span><div class="account-panel"><span class="account-dot">●</span><span id="account-label" title="记录仅保存在此浏览器，不会跨设备同步">浏览器本地版</span></div></header>
@@ -16,7 +16,7 @@
  <section id="daily-view">
  <div class="section-heading"><h2 id="selected-heading">今天的完成</h2><div class="date-switch"><button id="prev-day" aria-label="前一天">‹</button><label><span class="sr-only">记录日期</span><input type="date" id="record-date" required></label><button id="next-day" aria-label="后一天">›</button></div></div>
  <form id="quick-form" class="quick-card"><div class="quick-title"><span class="plus-circle">＋</span><input id="quick-title" aria-label="已完成事项" placeholder="今天，你完成了什么？" maxlength="150" required autocomplete="off"></div><div class="quick-options"><label class="select-wrap"><span class="sr-only">分类</span><select id="quick-category"><option>学习</option><option>工作</option><option>生活</option><option>健康</option><option>其他</option></select></label><label class="minutes-wrap"><input type="number" id="quick-minutes" min="0" max="1440" step="1" placeholder="耗时" aria-label="耗时分钟"> 分钟</label><button class="primary-button" type="submit">记下一件完成 <span>＋</span></button></div></form>
- <div class="list-caption"><span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份">✓ 保存并备份</button><span id="save-backup-status" role="status" aria-live="polite"></span></div><span>每一件小事，都值得打个勾</span></div><div id="daily-list" class="task-list"></div>
+ <div class="list-caption"><span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button><span id="save-backup-status" role="status" aria-live="polite"></span></div><span>每一件小事，都值得打个勾</span></div><div id="daily-list" class="task-list"></div>
  <section class="reflection-card"><div class="reflection-title"><h3>留给今天的一句话</h3><span id="reflection-status">随手写写</span></div><textarea id="reflection" maxlength="4000" placeholder="有什么收获、值得感谢的事，或者想留给明天的自己？" aria-label="每日回顾"></textarea><div class="reflection-footer">不必写得完整，真实就好。<span>✎</span></div></section>
  </section>
  <section id="review-view" hidden><div class="section-heading"><h2>翻阅你的进步</h2><input type="date" id="review-date" aria-label="回顾参考日期"></div><div class="review-toolbar"><div class="tabs" role="group" aria-label="回顾时间范围"><button data-period="week" class="active">本周</button><button data-period="month">本月</button><button data-period="all">全部</button></div><label class="search-wrap"><span>⌕</span><input type="search" id="search" aria-label="搜索记录" placeholder="搜索事项或感想"></label></div><div class="review-summary"><div><span id="range-label"></span><strong id="range-total"></strong><p id="range-minutes"></p></div><div id="week-chart" class="week-chart" aria-label="每日完成数量"></div></div><div id="review-list"></div></section>
@@ -39,7 +39,8 @@
 <div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
 <label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
 <div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
+<p id="github-auto-status" role="status" aria-live="polite">自动备份待授权</p>
 <p id="github-status" role="status" aria-live="polite"></p></dialog>
 
-<script type="module" src="app.mjs?v=eccd995c0e5d"></script>
+<script type="module" src="app.mjs?v=1602dd4fa8b2"></script>
 </body></html>
