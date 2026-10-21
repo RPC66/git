@@ -1,5 +1,6 @@
 import {validateBackup} from './model.mjs';
-import {createAutoBackup} from './auto-backup.mjs?v=1';
+import {createAutoBackup} from './auto-backup.mjs?v=2';
+import {coordinatedBackup} from './backup-coordinator.mjs?v=1';
 const API='https://api.github.com';
 export function encodeBackup(data){const bytes=new TextEncoder().encode(JSON.stringify({...validateBackup(data),exportedAt:new Date().toISOString()},null,2));let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary);}
 export function decodeBackup(content){const binary=atob(content.replace(/\s/g,''));return validateBackup(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))));}
@@ -18,10 +19,10 @@ export function createClient(token,request=fetch){
  };
 }
 export function setupGitHubBackup({getBackup,onRestore}){
- const $=id=>document.getElementById(id),dialog=$('github-dialog');let token='',busy=false;
+ const $=id=>document.getElementById(id),dialog=$('github-dialog');let token='',busy=false,enabled=false,enabledRepo='';
  const status=message=>$('github-status').textContent=message;
- const pendingKey='daily-done:github-pending';let initial=0;try{initial=Number(localStorage.getItem(pendingKey))||0;}catch{}
- const auto=createAutoBackup({initial,authorized:()=>!!token,report:message=>{$('github-auto-status').textContent=message;},persist:time=>{try{if(time)localStorage.setItem(pendingKey,String(time));else localStorage.removeItem(pendingKey);}catch{}},backup:async()=>{if(busy)throw new Error('另一项 GitHub 操作正在进行');busy=true;try{const remote=client();const data=await getBackup();await remote.backup($('github-repo').value.trim(),data);}finally{busy=false;}}});
+ async function upload(force=false){const remote=client(),repo=$('github-repo').value.trim();return coordinatedBackup({repository:repo,getData:getBackup,upload:data=>remote.backup(repo,data),storage:localStorage,locks:navigator.locks,force});}
+ const auto=createAutoBackup({authorized:()=>enabled&&!!token&&enabledRepo===$('github-repo').value.trim(),report:message=>{$('github-auto-status').textContent=message;},backup:async()=>{if(busy)throw new Error('另一项 GitHub 操作正在进行');busy=true;try{await upload();}finally{busy=false;}}});
  window.addEventListener('daily-done-changed',()=>auto.changed());
  window.addEventListener('storage',event=>{if(event.key==='daily-done-v1')auto.changed();});
  auto.resume();
@@ -30,9 +31,11 @@ export function setupGitHubBackup({getBackup,onRestore}){
  $('github-open').onclick=()=>{status(token?'授权已在本次页面中就绪。':'首次使用请填写 GitHub 令牌。');dialog.showModal();};
  $('github-close').onclick=()=>{if(!busy){$('github-token').value='';dialog.close();}};
  dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();else $('github-token').value='';});
- $('github-disconnect').onclick=()=>{token='';$('github-token').value='';$('github-files').replaceChildren();auto.resume();status('已清除本次页面中的授权。');};
- $('github-enable-auto').onclick=()=>{try{client();auto.resume();status('已启用：修改后连续 10 分钟无新修改时自动备份。请保持页面打开。');}catch(error){status(error.message);}};
- $('github-save').onclick=()=>run(async()=>{const remote=client();const data=await getBackup();const version=auto.version();await remote.backup($('github-repo').value.trim(),data);auto.saved(version);auto.resume();status(`备份成功：${data.tasks.length} 件事项，${Object.values(data.reflections).filter(Boolean).length} 天感想。已创建独立快照，可点击读取备份列表查看。`);});
+ $('github-disconnect').onclick=()=>{enabled=false;token='';$('github-token').value='';$('github-files').replaceChildren();auto.resume();status('已清除本次页面中的授权。');};
+ $('github-enable-auto').onclick=()=>run(async()=>{enabled=false;auto.resume();const repo=$('github-repo').value.trim();const version=auto.version();await upload(true);enabledRepo=repo;enabled=true;auto.saved(version);auto.resume();status('已验证写入权限并完成首次备份。后续有修改时，最多等待 10 分钟自动备份。');});
+ $('github-save').onclick=()=>run(async()=>{const version=auto.version();const data=await upload(true);auto.saved(version);status(`备份成功：${data.tasks.length} 件事项。历史快照已保留。`);});
+ $('github-repo').addEventListener('input',()=>{enabled=false;$('github-files').replaceChildren();auto.resume();});
+ $('github-token').addEventListener('input',()=>{enabled=false;auto.resume();});
  $('github-list').onclick=()=>run(async()=>{const files=await client().list($('github-repo').value.trim());$('github-files').replaceChildren();for(const file of files){const option=document.createElement('option');option.value=file.path;option.textContent=file.name;$('github-files').append(option);}status(files.length?`找到 ${files.length} 份备份，请选择后点击“恢复所选备份”。`:'仓库暂无备份，请先备份一次。');});
  $('github-restore').onclick=()=>run(async()=>{if(!$('github-files').value)throw new Error('请先读取列表并选择一份备份。');const backup=await client().restore($('github-repo').value.trim(),$('github-files').value);dialog.close();await onRestore(backup);});
 }

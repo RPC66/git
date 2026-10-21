@@ -6,7 +6,7 @@ GitHub Pages 本地版入口：https://rpc66.github.io/git/ 。网站文件在 `
 
 网站左侧提供“GitHub 备份 / 恢复”。专用私有仓库为 [RPC66/daily-done-backups](https://github.com/RPC66/daily-done-backups)。在 GitHub 创建 fine-grained personal access token，仅选择此备份仓库，设置 Contents: Read and write 和有效期，在网站弹窗填写。令牌仅保存在页面内存中，刷新后需要重新输入，不会写入源码、本地存储或备份文件。请勿将令牌发到聊天中。
 
-点击“备份到 GitHub”创建独立 JSON 快照，旧备份保留；另一设备上使用相同仓库和令牌，点击“读取备份列表”，选择快照并点击“恢复所选备份”，确认后与本地记录合并，相同编号事项、相同日期感想以备份为准。填写令牌后点击“启用自动备份”：内容每次修改后重新计时，连续 10 分钟无新修改后自动备份，失败 10 分钟后重试。侧栏显示待授权、待备份和成功/失败状态。手动备份成功取消相同内容的自动备份。待备份标记保留在浏览器，刷新后重新填写令牌可继续；关闭页面、休眠或后台限速会阻止或延迟执行。恢复仍需手动确认，不是自动跨设备同步。备份操作拒绝公开仓库。功能检查：`node --test pages.test.mjs github-backup.test.mjs auto-backup.test.mjs`。
+点击“备份到 GitHub”创建独立 JSON 快照，旧备份保留；另一设备上使用相同仓库和令牌，点击“读取备份列表”，选择快照并点击“恢复所选备份”，确认后与本地记录合并，相同编号事项、相同日期感想以备份为准。填写令牌后点击“启用自动备份”：启用时立即上传完整备份，确认写入成功后开启自动备份；从第一条未备份修改开始，最多 10 分钟备份一次，持续修改不会推迟，失败稍后重试。同一浏览器通过 Web Locks 串行操作，并以内容指纹跳过重复自动备份。侧栏显示待授权、待备份和成功/失败状态。手动备份成功取消相同内容的自动备份。刷新后重新填写令牌并启用，会立即备份当前完整记录；关闭页面、休眠或后台限速会阻止或延迟执行。恢复仍需手动确认，不是自动跨设备同步。备份操作拒绝公开仓库。功能检查：`node --test pages.test.mjs github-backup.test.mjs auto-backup.test.mjs`。
 
 发布源为 `main` 分支 `/docs`，推送后 GitHub 自动发布。修改 `public/` 界面后运行 `node scripts/build-pages.mjs` 重新生成静态文件；`docs/storage.mjs` 是本地存储模块。检查命令：`node --test model.test.mjs pages.test.mjs`。
 

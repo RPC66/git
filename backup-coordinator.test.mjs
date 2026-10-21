@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {coordinatedBackup} from './docs/backup-coordinator.mjs';
+function fixture(){let tail=Promise.resolve();const values=new Map();return {repository:'RPC66/backups',getData:async()=>({version:1,tasks:[],reflections:{}}),storage:{getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value)},locks:{request:(name,fn)=>{const work=tail.then(fn);tail=work.catch(()=>{});return work;}}};}
+test('two tabs coordinate and upload identical automatic snapshots only once',async()=>{const options=fixture();let calls=0;options.upload=async()=>{calls++;};await Promise.all([coordinatedBackup(options),coordinatedBackup(options)]);assert.equal(calls,1);});
+test('failed writes are not acknowledged and first enable proves write access',async()=>{const options=fixture();let calls=0;options.upload=async()=>{if(++calls===1)throw new Error('no write permission');};await assert.rejects(coordinatedBackup({...options,force:true}),/permission/);await coordinatedBackup(options);assert.equal(calls,2);await coordinatedBackup({...options,force:true});assert.equal(calls,3);});
+test('new content uploaded while another snapshot is in flight is preserved',async()=>{const options=fixture();let version=1;const uploaded=[];options.getData=async()=>({version});options.upload=async data=>{uploaded.push(data.version);version=2;};await Promise.all([coordinatedBackup(options),coordinatedBackup(options)]);assert.deepEqual(uploaded,[1,2]);});
