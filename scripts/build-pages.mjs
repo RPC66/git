@@ -36,7 +36,7 @@ setupGitHubBackup({
  async onRestore(backup){pendingImport=backup;$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。\`;$('#import-dialog').showModal();}
 });\n`;
 let html=await readFile('public/diary.html','utf8');
-html=replace(html,'<span id="day-count">完成清单 · 0 件</span>','<span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button><span id="save-backup-status" role="status" aria-live="polite"></span></div>');
+html=replace(html,'<div id="daily-list" class="task-list"></div>','<div id="daily-list" class="task-list"></div><div class="save-backup-control"><span id="save-backup-status" role="status" aria-live="polite"></span><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button></div>');
 html=replace(html,'<p>慢慢来，每一步都算数。</p>','');
 html=replace(html,'<span class="storage-label"><i></i> <span id="sync-state">云端记录</span><button id="retry-sync" hidden>重试</button></span>','<span id="sync-state" hidden>云端记录</span><button id="retry-sync" hidden>重试保存</button>');
 html=replace(html,'正在读取你的云端记录…','正在读取此浏览器的记录…');
