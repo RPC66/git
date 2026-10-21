@@ -4,6 +4,7 @@
 
 .github-entry{display:block;margin:12px auto 0;color:#235948;font-size:12px}.github-actions{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}#github-dialog{max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}#github-dialog p{font-size:13px;line-height:1.7}#github-dialog label{display:block;margin:14px 0}#github-dialog input,#github-dialog select{width:100%;box-sizing:border-box;margin-top:7px}#github-dialog a{text-decoration:underline}#github-status{min-height:24px;overflow-wrap:anywhere}
 /* Spacious light-blue theme for the browser-local edition. */
+.list-caption{align-items:center;gap:12px;flex-wrap:wrap}.save-backup-control{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.save-backup-control #save-backup{font-size:15px;min-height:44px;padding:9px 16px;color:#fff;background:#287bb9;border-color:#287bb9}.save-backup-control #save-backup-status{display:inline!important;font-size:14px;color:#456f91;max-width:340px;overflow-wrap:anywhere}
 #github-auto-status{display:block;margin:10px 0 0;font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere}
 :root{--green:#287bb9;--dark:#233e58;--muted:#607e98;--line:#d9e8f4;--paper:#f4f9ff;--light:#eaf4ff;--accent:#81b7df}
 body{font-size:17px;line-height:1.75;background:var(--paper)}

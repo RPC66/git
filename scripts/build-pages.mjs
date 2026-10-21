@@ -36,6 +36,7 @@ setupGitHubBackup({
  async onRestore(backup){pendingImport=backup;$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。\`;$('#import-dialog').showModal();}
 });\n`;
 let html=await readFile('public/diary.html','utf8');
+html=replace(html,'<span id="day-count">完成清单 · 0 件</span>','<span id="day-count">完成清单 · 0 件</span><div class="save-backup-control"><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份">✓ 保存并备份</button><span id="save-backup-status" role="status" aria-live="polite"></span></div>');
 html=replace(html,'正在读取你的云端记录…','正在读取此浏览器的记录…');
 html=replace(html,'<a href="/login">返回登录</a>','<p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p>');
 html=replace(html,'<span id="sync-state">云端记录</span>','<span id="sync-state">本地记录</span>');
