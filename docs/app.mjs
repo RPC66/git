@@ -64,7 +64,7 @@ function boot(){
 }
 boot();
 
-import {setupGitHubBackup} from './github-backup.mjs';
+import {setupGitHubBackup} from './github-backup.mjs?v=5f81d21c2569';
 setupGitHubBackup({
  async getBackup(){if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
  async onRestore(backup){pendingImport=backup;$('#import-description').textContent=`GitHub 备份含 ${backup.tasks.length} 件事项、${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。`;$('#import-dialog').showModal();}

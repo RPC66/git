@@ -1,4 +1,6 @@
 import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+const hash=text=>createHash('sha256').update(text).digest('hex').slice(0,12);
 
 await mkdir('docs',{recursive:true});
 const replace=(text,from,to)=>{if(!text.includes(from))throw new Error(`Missing source fragment: ${from.slice(0,60)}`);return text.replace(from,to);};
@@ -43,6 +45,9 @@ html=replace(html,'给每一天，留一点成长的证据。','数据仅保存�
 html=replace(html,'<link rel="stylesheet"','<link rel="icon" href="favicon.svg"><link rel="stylesheet"');
 html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file"');
 html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
+app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
+html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);
+html=replace(html,'href="style.css"',`href="style.css?v=${hash(await readFile('public/style.css'))}-github1"`);
 await writeFile('docs/index.html',html);
 await writeFile('docs/app.mjs',app);
 for(const file of ['style.css','model.mjs','sync.mjs','favicon.svg'])await copyFile(`public/${file}`,`docs/${file}`);
