@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#287bb9"><meta name="description" content="记录每天完成的事，在日历里回顾自己的进步。"><title>日有所成 · 每一份完成，都值得被看见</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=86b02fff5bf8-github1"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#287bb9"><meta name="description" content="记录每天完成的事，在日历里回顾自己的进步。"><title>日有所成 · 每一份完成，都值得被看见</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=709d7ee873ad-github1"></head>
 <body class="auth-loading">
 <div id="session-loading" role="status"><span>✳</span><p id="loading-message">正在读取此浏览器的记录…</p><button id="reload-session" hidden>重新加载</button><p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p></div>
 <aside class="sidebar">
  <a class="brand" href="#today"><span class="brand-icon">✳</span><span>日有所成<small>MAKE ROOM FOR PROGRESS</small></span></a>
  <nav aria-label="主导航"><button class="nav active" id="nav-today"><span>◷</span> 每日记录</button><button class="nav" id="nav-review"><span>▤</span> 时光回顾</button></nav>
- <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><p>慢慢来，每一步都算数。</p><span class="storage-label"><i></i> <span id="sync-state">本地记录</span><button id="retry-sync" hidden>重试</button></span><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file" type="file" accept=".json,application/json"></div>
+ <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><p>慢慢来，每一步都算数。</p><span class="storage-label"><i></i> <span id="sync-state">本地记录</span><button id="retry-sync" hidden>重试</button></span><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><p id="github-auto-status" role="status" style="font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere">自动备份待授权</p><input hidden id="import-file" type="file" accept=".json,application/json"></div>
 </aside>
 <main>
  <header class="topbar"><span id="top-date"></span><div class="account-panel"><span class="account-dot">●</span><span id="account-label" title="记录仅保存在此浏览器，不会跨设备同步">浏览器本地版</span></div></header>
@@ -34,10 +34,12 @@
 <p class="muted">首次使用：<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">在 GitHub 创建细粒度令牌 ↗</a>，仅选择 daily-done-backups 仓库，仓库权限 Contents 设为 Read and write，并设置有效期。</p>
 <label>GitHub 令牌<input id="github-token" type="password" placeholder="仅本次页面使用，不保存到浏览器" autocomplete="off" spellcheck="false"></label>
 <p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
+<p>启用后，每次新增、编辑、删除、导入或保存感想都会重新计时，连续 10 分钟无修改后自动备份。失败会保留待备份状态，并在 10 分钟后重试。页面需保持打开；关闭页面或电脑休眠时不能备份，恢复页面后可能延迟执行。</p>
+<button id="github-enable-auto" class="outline">启用自动备份</button>
 <div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
 <label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
 <div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
 <p id="github-status" role="status" aria-live="polite"></p></dialog>
 
-<script type="module" src="app.mjs?v=508d2fc6bf19"></script>
+<script type="module" src="app.mjs?v=ea229a42fec5"></script>
 </body></html>

@@ -9,7 +9,7 @@ app=replace(app,"import {diffRecords,operationBatches} from './sync.mjs';","impo
 app=replace(app,'let account=null,transport=Promise.resolve(),pendingSaves=0,legacy=null;','let transport=Promise.resolve(),pendingSaves=0;');
 const apiStart=app.indexOf('async function api('),apiEnd=app.indexOf('function saveOperations(',apiStart);
 app=app.slice(0,apiStart)+app.slice(apiEnd);
-app=replace(app,"for(const batch of operationBatches(operations)){const result=await api('/api/records',{operations:batch});data=validateBackup(result.data);}",'data=writeOperations(localStorage,operations);');
+app=replace(app,"for(const batch of operationBatches(operations)){const result=await api('/api/records',{operations:batch});data=validateBackup(result.data);}","data=writeOperations(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));");
 app=app.replaceAll(',#migrate-local','');
 const refreshStart=app.indexOf('async function refresh()');
 app=app.slice(0,refreshStart)+`
@@ -43,7 +43,7 @@ html=replace(html,'<span id="account-label">我的账号</span><a id="logout" hr
 html=html.replace(/^.*id="migration-banner".*\r?\n/m,'');
 html=replace(html,'给每一天，留一点成长的证据。','数据仅保存在当前浏览器，不跨设备同步。清理浏览器数据会删除记录，请定期导出备份。');
 html=replace(html,'<link rel="stylesheet"','<link rel="icon" href="favicon.svg"><link rel="stylesheet"');
-html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file"');
+html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><p id="github-auto-status" role="status" style="font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere">自动备份待授权</p><input hidden id="import-file"');
 html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
 app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
 html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);

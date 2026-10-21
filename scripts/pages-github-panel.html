@@ -4,6 +4,8 @@
 <p class="muted">首次使用：<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">在 GitHub 创建细粒度令牌 ↗</a>，仅选择 daily-done-backups 仓库，仓库权限 Contents 设为 Read and write，并设置有效期。</p>
 <label>GitHub 令牌<input id="github-token" type="password" placeholder="仅本次页面使用，不保存到浏览器" autocomplete="off" spellcheck="false"></label>
 <p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
+<p>启用后，每次新增、编辑、删除、导入或保存感想都会重新计时，连续 10 分钟无修改后自动备份。失败会保留待备份状态，并在 10 分钟后重试。页面需保持打开；关闭页面或电脑休眠时不能备份，恢复页面后可能延迟执行。</p>
+<button id="github-enable-auto" class="outline">启用自动备份</button>
 <div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
 <label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
 <div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>

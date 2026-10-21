@@ -4,6 +4,7 @@
 
 .github-entry{display:block;margin:12px auto 0;color:#235948;font-size:12px}.github-actions{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}#github-dialog{max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}#github-dialog p{font-size:13px;line-height:1.7}#github-dialog label{display:block;margin:14px 0}#github-dialog input,#github-dialog select{width:100%;box-sizing:border-box;margin-top:7px}#github-dialog a{text-decoration:underline}#github-status{min-height:24px;overflow-wrap:anywhere}
 /* Spacious light-blue theme for the browser-local edition. */
+#github-auto-status{display:block;margin:10px 0 0;font-size:13px;line-height:1.6;color:#456f91;overflow-wrap:anywhere}
 :root{--green:#287bb9;--dark:#233e58;--muted:#607e98;--line:#d9e8f4;--paper:#f4f9ff;--light:#eaf4ff;--accent:#81b7df}
 body{font-size:17px;line-height:1.75;background:var(--paper)}
 .sidebar{width:260px;background:#eaf4ff;padding:32px 22px}.brand{font-size:25px}.brand small{font-size:9px}.brand-icon{color:#287bb9}.nav{font-size:17px;color:#587b99;padding:15px 18px}.nav.active{background:#d4eaff;color:#1f659b}.sidebar-bottom p{font-size:15px;color:#607e98}.storage-label,.backup-actions,.github-entry{font-size:14px;color:#456f91}.backup-actions button,.github-entry{min-height:40px}.little-plant svg path:first-child{fill:#c6e5fa;stroke:#619bc5}.little-plant svg path:last-child{fill:#b5d5ef}

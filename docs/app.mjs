@@ -11,7 +11,7 @@ const draftNotes=new Map(),reflectionTimers=new Map();
 function syncState(text,error=false){$('#sync-state').textContent=text;$('#sync-state').classList.toggle('sync-error',error);$('#retry-sync').hidden=!error||!draftNotes.size;}
 function saveOperations(operations){
  if(!operations.length)return Promise.resolve();pendingSaves++;syncState('正在保存…');$$('#quick-form button[type=submit],#edit-form button[type=submit],#confirm-import').forEach(b=>b.disabled=true);
- const work=transport.catch(()=>{}).then(async()=>{data=writeOperations(localStorage,operations);});
+ const work=transport.catch(()=>{}).then(async()=>{data=writeOperations(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));});
  transport=work;return work.finally(()=>{pendingSaves--;if(!pendingSaves){$$('#quick-form button[type=submit],#edit-form button[type=submit],#confirm-import').forEach(b=>b.disabled=false);syncState(draftNotes.size?'感想待保存':'已保存到此浏览器',!!draftNotes.size);}});
 }
 async function commit(next){try{await saveOperations(diffRecords(data,next));return true;}catch(error){syncState('未保存，请重新提交',true);toast(error.message||'保存失败，请重新提交');return false;}}
@@ -64,7 +64,7 @@ function boot(){
 }
 boot();
 
-import {setupGitHubBackup} from './github-backup.mjs?v=5f81d21c2569';
+import {setupGitHubBackup} from './github-backup.mjs?v=5ae35f2bd7e7';
 setupGitHubBackup({
  async getBackup(){if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
  async onRestore(backup){pendingImport=backup;$('#import-description').textContent=`GitHub 备份含 ${backup.tasks.length} 件事项、${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。`;$('#import-dialog').showModal();}
