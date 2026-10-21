@@ -1,8 +1,12 @@
 # 日有所成
 
-在线网站：[打开日有所成](https://daily-done-oct21.neatvole65.chatgpt.site)。本仓库保存从该站点迁入的完整源码。
+GitHub Pages 本地版入口：https://rpc66.github.io/git/ 。网站文件在 `docs/`，无需安装依赖或登录。支持完成事项、编辑删除、日历、周/月回顾、搜索、每日感想及 JSON 备份导入导出。
 
-此项目需要服务端和 Cloudflare D1 数据库，不能直接作为 GitHub Pages 静态网站部署。`.openai/hosting.json` 保留原站点配置；部署目标确定前，请勿将它改为其他站点身份。仓库不包含线上账号、个人记录、会话或运行时密钥。
+本地版数据仅保存在当前浏览器，不跨设备同步；清除浏览器数据会删除记录，请定期导出备份。原站云端记录可先导出 JSON，再在本地版导入。同一 GitHub Pages 域名下的网站共享浏览器存储来源，请勿在不信任的同域网站使用个人数据。
+
+发布源为 `main` 分支 `/docs`，推送后 GitHub 自动发布。修改 `public/` 界面后运行 `node scripts/build-pages.mjs` 重新生成静态文件；`docs/storage.mjs` 是本地存储模块。检查命令：`node --test model.test.mjs pages.test.mjs`。
+
+原始云端版源码仍保存在 `app/`、`lib/` 等目录，需要服务端和 Cloudflare D1，原站地址：https://daily-done-oct21.neatvole65.chatgpt.site 。`.openai/hosting.json` 保留原站配置。GitHub Pages 只发布 `docs/`，不发布后端目录；仓库不包含线上账号、个人记录、会话或运行时密钥。下文为云端版说明。
 
 个人完成记录网站，支持邮箱密码注册、登录、退出、账号会话、Cloudflare D1 云端记录、日历回顾、周/月汇总、搜索及 JSON 备份导入导出。
 
