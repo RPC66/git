@@ -47,10 +47,12 @@ html=replace(html,'<input hidden id="import-file"','<button id="github-open" cla
 html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
 app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
 html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);
-html=replace(html,'href="style.css"',`href="style.css?v=${hash(await readFile('public/style.css'))}-github1"`);
+html=replace(html,'href="style.css"',`href="style.css?v=${hash(Buffer.concat([await readFile('public/style.css'),await readFile('scripts/pages-theme.css')]))}-github1"`);
 await writeFile('docs/index.html',html);
 await writeFile('docs/app.mjs',app);
 for(const file of ['style.css','model.mjs','sync.mjs','favicon.svg'])await copyFile(`public/${file}`,`docs/${file}`);
 await writeFile('docs/style.css','\n.github-entry{display:block;margin:12px auto 0;color:#235948;font-size:12px}.github-actions{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}#github-dialog{max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}#github-dialog p{font-size:13px;line-height:1.7}#github-dialog label{display:block;margin:14px 0}#github-dialog input,#github-dialog select{width:100%;box-sizing:border-box;margin-top:7px}#github-dialog a{text-decoration:underline}#github-status{min-height:24px;overflow-wrap:anywhere}\n',{flag:'a'});
 await writeFile('docs/.nojekyll','');
+await writeFile('docs/style.css',await readFile('scripts/pages-theme.css'),{flag:'a'});
+await writeFile('docs/index.html',(await readFile('docs/index.html','utf8')).replace('content="#235948"','content="#287bb9"'));
 console.log('GitHub Pages files prepared in docs/');
