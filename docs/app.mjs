@@ -1,6 +1,6 @@
 import {CATEGORIES,dayKey,parseDay,validDay,shiftDay,weekStart,inRange,streak,validateBackup} from './model.mjs';
 import {diffRecords} from './sync.mjs';
-import {readRecords,writeOperations} from './storage.mjs';
+import {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=2';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)],KEY='daily-done-v1';
 const empty=()=>({version:1,tasks:[],reflections:{}});
 let data=empty(),selected=dayKey(),month=selected.slice(0,7),view='today',period='week',editId=null,pendingImport=null,undoAction=null,toastTimer;
@@ -11,7 +11,7 @@ const draftNotes=new Map(),reflectionTimers=new Map();
 function syncState(text,error=false){$('#sync-state').textContent=text;$('#sync-state').classList.toggle('sync-error',error);$('#retry-sync').hidden=!error||!draftNotes.size;}
 function saveOperations(operations){
  if(!operations.length)return Promise.resolve();pendingSaves++;syncState('正在保存…');$$('#quick-form button[type=submit],#edit-form button[type=submit],#confirm-import').forEach(b=>b.disabled=true);
- const work=transport.catch(()=>{}).then(async()=>{data=writeOperations(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));});
+ const work=transport.catch(()=>{}).then(async()=>{data=await writeRecordsLocked(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));});
  transport=work;return work.finally(()=>{pendingSaves--;if(!pendingSaves){$$('#quick-form button[type=submit],#edit-form button[type=submit],#confirm-import').forEach(b=>b.disabled=false);syncState(draftNotes.size?'感想待保存':'已保存到此浏览器',!!draftNotes.size);}});
 }
 async function commit(next){try{await saveOperations(diffRecords(data,next));return true;}catch(error){syncState('未保存，请重新提交',true);toast(error.message||'保存失败，请重新提交');return false;}}
@@ -43,8 +43,8 @@ async function flushDrafts(){for(const date of [...draftNotes.keys()]){if(!await
 $('#reflection').oninput=e=>{const date=selected;draftNotes.set(date,e.target.value);clearTimeout(reflectionTimers.get(date));$('#reflection-status').textContent='等待保存';syncState('感想待保存');reflectionTimers.set(date,setTimeout(()=>saveReflection(date),600));};
 $$('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period;renderReview();});$('#search').oninput=renderReview;
 $('#export').onclick=async()=>{await flushDrafts();const exported={...data,reflections:{...data.reflections,...Object.fromEntries(draftNotes)},exportedAt:new Date().toISOString()};const blob=new Blob([JSON.stringify(exported,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`日有所成-备份-${dayKey()}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast(draftNotes.size?'备份已导出，包含尚未保存到浏览器的感想。':'备份已导出，请妥善保存文件。');};
-$('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>20*1024*1024)throw new Error('备份文件过大，请选择 20 MB 以内的文件');pendingImport=validateBackup(JSON.parse(await file.text()));$('#import-description').textContent=`备份中有 ${pendingImport.tasks.length} 件完成事项、${Object.values(pendingImport.reflections).filter(Boolean).length} 天的感想。`;$('#import-dialog').showModal();}catch(err){toast(err instanceof SyntaxError?'无法解析文件，请选择导出的 JSON 备份。':err.message);}finally{e.target.value='';}};
-async function mergeBackup(backup){if(!await flushDrafts())return false;const tasks=new Map(data.tasks.map(t=>[t.id,t]));backup.tasks.forEach(t=>tasks.set(t.id,t));return commit({version:1,tasks:[...tasks.values()].sort((a,b)=>b.date.localeCompare(a.date)),reflections:{...data.reflections,...backup.reflections}});}
+$('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>20*1024*1024)throw new Error('备份文件过大，请选择 20 MB 以内的文件');pendingImport=validateBackup(JSON.parse(await file.text()));$('#import-description').textContent=`备份中有 ${pendingImport.tasks.length} 件完成事项、${Object.values(pendingImport.reflections).filter(Boolean).length} 天的感想。`;const conflicts=restoreSummary(readRecords(localStorage),pendingImport);$('#import-description').textContent+=` 将覆盖 ${conflicts.tasks} 件已有事项、${conflicts.reflections} 天已有感想。恢复前会自动保留本地备份。`;$('#import-dialog').showModal();}catch(err){toast(err instanceof SyntaxError?'无法解析文件，请选择导出的 JSON 备份。':err.message);}finally{e.target.value='';}};
+async function mergeBackup(backup){if(!await flushDrafts())return false;try{data=await mergeWithCheckpoint(localStorage,backup);window.dispatchEvent(new Event('daily-done-changed'));return true;}catch(error){toast(error.message);return false;}}
 $('#cancel-import').onclick=()=>{if(pendingSaves)return;$('#import-dialog').close();pendingImport=null;};$('#confirm-import').onclick=async()=>{if(!pendingImport||pendingSaves)return;if(await mergeBackup(pendingImport)){$('#import-dialog').close();pendingImport=null;render();toast('备份已合并到此浏览器的记录。');}};
 $('#undo').onclick=()=>{const action=undoAction;undoAction=null;if(action)action();};
 
@@ -64,8 +64,12 @@ function boot(){
 }
 boot();
 
-import {setupGitHubBackup} from './github-backup.mjs?v=84b61369dd6c';
+import {setupGitHubBackup} from './github-backup.mjs?v=d113d8d278c8';
 setupGitHubBackup({
- async getBackup(){if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
- async onRestore(backup){pendingImport=backup;$('#import-description').textContent=`GitHub 备份含 ${backup.tasks.length} 件事项、${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。`;$('#import-dialog').showModal();}
+ async getBackup({includeDrafts=false}={}){
+ if(includeDrafts){if($('#edit-dialog').open)throw new Error('请先保存或关闭事项编辑窗口，再上传备份。');const input=$('#quick-title'),title=input.value.trim();if(title){if(!$('#quick-form').reportValidity())throw new Error('请检查事项的耗时等输入。');const task={id:crypto.randomUUID(),title,date:selected,category:$('#quick-category').value,minutes:Number($('#quick-minutes').value)||0,note:''};await saveOperations([{type:'put-task',task}]);if(input.value.trim()===title){input.value='';$('#quick-minutes').value='';}render();}}
+ if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
+ async onRestore(backup){pendingImport=backup;const conflicts=restoreSummary(readRecords(localStorage),backup);$('#import-description').textContent=`GitHub 备份含 ${backup.tasks.length} 件事项、${Object.values(backup.reflections).filter(Boolean).length} 天感想。将覆盖 ${conflicts.tasks} 件已有事项、${conflicts.reflections} 天已有感想；恢复前自动保留本地备份，可在 GitHub 备份弹窗下载。`;$('#import-dialog').showModal();}
 });
+
+$('#download-checkpoint').onclick=()=>{try{const raw=localStorage.getItem(CHECKPOINT);if(!raw)throw new Error('暂无恢复前备份');validateBackup(JSON.parse(raw));const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='日有所成-恢复前备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){toast(error.message);}};

@@ -2,6 +2,7 @@ import {validateBackup} from './model.mjs';
 import {createAutoBackup} from './auto-backup.mjs?v=2';
 import {coordinatedBackup} from './backup-coordinator.mjs?v=1';
 const API='https://api.github.com';
+export function checkEmptyBackup(data,files,allowEmpty=false){if(!allowEmpty&&!data.tasks.length&&!Object.values(data.reflections).some(Boolean)&&files.length)throw new Error('当前浏览器没有记录，但 GitHub 已有备份。请先恢复；若确实需要空备份，请勾选“允许上传空记录”。');}
 export function encodeBackup(data){const bytes=new TextEncoder().encode(JSON.stringify({...validateBackup(data),exportedAt:new Date().toISOString()},null,2));let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary);}
 export function decodeBackup(content){const binary=atob(content.replace(/\s/g,''));return validateBackup(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))));}
 export function createClient(token,request=fetch){
@@ -21,8 +22,8 @@ export function createClient(token,request=fetch){
 export function setupGitHubBackup({getBackup,onRestore}){
  const $=id=>document.getElementById(id),dialog=$('github-dialog');let token='',busy=false,enabled=false,enabledRepo='';
  const status=message=>$('github-status').textContent=message;
- async function upload(force=false){const remote=client(),repo=$('github-repo').value.trim();return coordinatedBackup({repository:repo,getData:getBackup,upload:data=>remote.backup(repo,data),storage:localStorage,locks:navigator.locks,force});}
- const auto=createAutoBackup({authorized:()=>enabled&&!!token&&enabledRepo===$('github-repo').value.trim(),report:message=>{$('github-auto-status').textContent=message;},backup:async()=>{if(busy)throw new Error('另一项 GitHub 操作正在进行');busy=true;try{await upload();}finally{busy=false;}}});
+ async function upload(force=false){const remote=client(),repo=$('github-repo').value.trim();let version;const data=await coordinatedBackup({repository:repo,getData:async()=>{const data=await getBackup({includeDrafts:force});version=auto.version();return data;},upload:async data=>{if(!data.tasks.length&&!Object.values(data.reflections).some(Boolean)&&!$('github-allow-empty').checked)checkEmptyBackup(data,await remote.list(repo));return remote.backup(repo,data);},storage:localStorage,locks:navigator.locks,force});return {data,version};}
+ const auto=createAutoBackup({authorized:()=>enabled&&!!token&&enabledRepo===$('github-repo').value.trim(),report:message=>{$('github-auto-status').textContent=message;$('save-backup-status').textContent=message;},backup:async()=>{if(busy)throw new Error('另一项 GitHub 操作正在进行');busy=true;try{await upload();}finally{busy=false;}}});
  window.addEventListener('daily-done-changed',()=>auto.changed());
  window.addEventListener('storage',event=>{if(event.key==='daily-done-v1')auto.changed();});
  auto.resume();
@@ -32,8 +33,8 @@ export function setupGitHubBackup({getBackup,onRestore}){
  $('github-close').onclick=()=>{if(!busy){$('github-token').value='';dialog.close();}};
  dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();else $('github-token').value='';});
  $('github-disconnect').onclick=()=>{enabled=false;token='';$('github-token').value='';$('github-files').replaceChildren();auto.resume();status('已清除本次页面中的授权。');};
- $('github-enable-auto').onclick=()=>run(async()=>{enabled=false;auto.resume();const repo=$('github-repo').value.trim();const version=auto.version();await upload(true);enabledRepo=repo;enabled=true;auto.saved(version);auto.resume();status('已验证写入权限并完成首次备份。后续有修改时，最多等待 10 分钟自动备份。');});
- function saveNow(){return run(async()=>{const version=auto.version();const data=await upload(true);auto.saved(version);status(`备份成功：${data.tasks.length} 件事项。历史快照已保留。`);$('save-backup-status').textContent=auto.version()===version?'✓ 已上传 GitHub · '+new Date().toLocaleTimeString('zh-CN'):'已上传备份；期间有新修改，请再保存一次';},true);}
+ $('github-enable-auto').onclick=()=>run(async()=>{enabled=false;auto.resume();const repo=$('github-repo').value.trim();const {version}=await upload(true);enabledRepo=repo;enabled=true;auto.saved(version);auto.resume();status('已验证写入权限并完成首次备份。后续有修改时，最多等待 10 分钟自动备份。');});
+ function saveNow(){return run(async()=>{const {data,version}=await upload(true);auto.saved(version);status(`备份成功：${data.tasks.length} 件事项。历史快照已保留。`);$('save-backup-status').textContent=auto.version()===version?'✓ 已上传 GitHub · '+new Date().toLocaleTimeString('zh-CN'):'已上传备份；期间有新修改，请再保存一次';},true);}
  $('github-save').onclick=saveNow;
  $('save-backup').onclick=()=>{if(!token&&!$('github-token').value.trim()){status('请先填写 GitHub 令牌，然后点击“备份到 GitHub”。');$('save-backup-status').textContent='请先在弹窗填写 GitHub 令牌';if(!dialog.open)dialog.showModal();return;}return saveNow();};
  window.addEventListener('daily-done-changed',()=>{$('save-backup-status').textContent='内容已更新，尚未上传这次修改';});

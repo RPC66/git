@@ -5,12 +5,15 @@ const hash=text=>createHash('sha256').update(text).digest('hex').slice(0,12);
 await mkdir('docs',{recursive:true});
 const replace=(text,from,to)=>{if(!text.includes(from))throw new Error(`Missing source fragment: ${from.slice(0,60)}`);return text.replace(from,to);};
 let app=await readFile('public/app.mjs','utf8');
-app=replace(app,"import {diffRecords,operationBatches} from './sync.mjs';","import {diffRecords} from './sync.mjs';\nimport {readRecords,writeOperations} from './storage.mjs';");
+app=replace(app,"import {diffRecords,operationBatches} from './sync.mjs';","import {diffRecords} from './sync.mjs';\nimport {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=2';");
 app=replace(app,'let account=null,transport=Promise.resolve(),pendingSaves=0,legacy=null;','let transport=Promise.resolve(),pendingSaves=0;');
 const apiStart=app.indexOf('async function api('),apiEnd=app.indexOf('function saveOperations(',apiStart);
 app=app.slice(0,apiStart)+app.slice(apiEnd);
-app=replace(app,"for(const batch of operationBatches(operations)){const result=await api('/api/records',{operations:batch});data=validateBackup(result.data);}","data=writeOperations(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));");
+app=replace(app,"for(const batch of operationBatches(operations)){const result=await api('/api/records',{operations:batch});data=validateBackup(result.data);}","data=await writeRecordsLocked(localStorage,operations);window.dispatchEvent(new Event('daily-done-changed'));");
 app=app.replaceAll(',#migrate-local','');
+const mergeStart=app.indexOf('async function mergeBackup('),mergeEnd=app.indexOf("$('#cancel-import')",mergeStart);
+app=app.slice(0,mergeStart)+`async function mergeBackup(backup){if(!await flushDrafts())return false;try{data=await mergeWithCheckpoint(localStorage,backup);window.dispatchEvent(new Event('daily-done-changed'));return true;}catch(error){toast(error.message);return false;}}\n`+app.slice(mergeEnd);
+app=replace(app,"$('#import-dialog').showModal();","const conflicts=restoreSummary(readRecords(localStorage),pendingImport);$('#import-description').textContent+=\` 将覆盖 \${conflicts.tasks} 件已有事项、\${conflicts.reflections} 天已有感想。恢复前会自动保留本地备份。\`;$('#import-dialog').showModal();");
 const refreshStart=app.indexOf('async function refresh()');
 app=app.slice(0,refreshStart)+`
 function refresh(){
@@ -32,9 +35,12 @@ boot();
 app=app.replaceAll('已保存到云端','已保存到此浏览器').replaceAll('尚未保存到云端','尚未保存到浏览器').replaceAll('备份已合并到当前账号的云端记录。','备份已合并到此浏览器的记录。');
 app += `\nimport {setupGitHubBackup} from './github-backup.mjs';
 setupGitHubBackup({
- async getBackup(){if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
- async onRestore(backup){pendingImport=backup;$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。\`;$('#import-dialog').showModal();}
+ async getBackup({includeDrafts=false}={}){
+ if(includeDrafts){if($('#edit-dialog').open)throw new Error('请先保存或关闭事项编辑窗口，再上传备份。');const input=$('#quick-title'),title=input.value.trim();if(title){if(!$('#quick-form').reportValidity())throw new Error('请检查事项的耗时等输入。');const task={id:crypto.randomUUID(),title,date:selected,category:$('#quick-category').value,minutes:Number($('#quick-minutes').value)||0,note:''};await saveOperations([{type:'put-task',task}]);if(input.value.trim()===title){input.value='';$('#quick-minutes').value='';}render();}}
+ if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
+ async onRestore(backup){pendingImport=backup;const conflicts=restoreSummary(readRecords(localStorage),backup);$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。将覆盖 \${conflicts.tasks} 件已有事项、\${conflicts.reflections} 天已有感想；恢复前自动保留本地备份，可在 GitHub 备份弹窗下载。\`;$('#import-dialog').showModal();}
 });\n`;
+app+=`\n$('#download-checkpoint').onclick=()=>{try{const raw=localStorage.getItem(CHECKPOINT);if(!raw)throw new Error('暂无恢复前备份');validateBackup(JSON.parse(raw));const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='日有所成-恢复前备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){toast(error.message);}};\n`;
 let html=await readFile('public/diary.html','utf8');
 html=replace(html,'<div id="daily-list" class="task-list"></div>','<div id="daily-list" class="task-list"></div><div class="save-backup-control"><span id="save-backup-status" role="status" aria-live="polite"></span><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button></div>');
 html=replace(html,'<p>慢慢来，每一步都算数。</p>','');

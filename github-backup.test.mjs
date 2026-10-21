@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createClient,encodeBackup,decodeBackup} from './docs/github-backup.mjs';
+import {createClient,encodeBackup,decodeBackup,checkEmptyBackup} from './docs/github-backup.mjs';
 const data={version:1,tasks:[{id:'one',date:'2026-10-21',title:'完成阅读 📚',category:'学习',minutes:20,note:'中文笔记'}],reflections:{'2026-10-21':'今天有所收获 🌱'}};
+test('empty device cannot silently create the latest empty snapshot',()=>{const empty={version:1,tasks:[],reflections:{}};assert.throws(()=>checkEmptyBackup(empty,[{}]),/请先恢复/);assert.doesNotThrow(()=>checkEmptyBackup(empty,[{}],true));assert.doesNotThrow(()=>checkEmptyBackup(empty,[]));assert.doesNotThrow(()=>checkEmptyBackup(data,[{}]));});
 test('backup preserves Unicode and rejects invalid records',()=>{assert.deepEqual(decodeBackup(encodeBackup(data)),data);assert.throws(()=>decodeBackup(btoa('{}')));});
 test('backup writes a unique snapshot into a verified private repository',async()=>{
  const calls=[];const client=createClient('test-only',async(url,options)=>{calls.push({url,options});return Response.json(options.method==='PUT'?{content:{}}:{private:true,default_branch:'main'});});

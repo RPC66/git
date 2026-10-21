@@ -6,8 +6,10 @@
 <p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
 <p>启用时立即备份，成功后才开启自动备份。之后有未备份修改时，最多等待 10 分钟就自动备份，持续编辑不会推迟；失败会稍后重试。同一浏览器的多个标签页会协调并跳过重复内容。页面需保持打开；关闭页面或电脑休眠会阻止或延迟备份。刷新后重新启用会先备份当前全部记录。</p>
 <button id="github-enable-auto" class="outline">启用自动备份</button>
+<label><input id="github-allow-empty" type="checkbox" style="display:inline;width:auto;min-height:0;margin-right:8px">允许上传空记录（仅在确认不需要先恢复历史记录时勾选）</label>
 <div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
 <label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
 <div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
 <p id="github-auto-status" role="status" aria-live="polite">自动备份待授权</p>
+<button id="download-checkpoint" class="outline">下载上次恢复前的备份</button>
 <p id="github-status" role="status" aria-live="polite"></p></dialog>

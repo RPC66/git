@@ -1,5 +1,23 @@
 import {validateBackup} from './model.mjs';
 export const KEY='daily-done-v1';
+export const CHECKPOINT='daily-done:before-restore';
+export async function writeRecordsLocked(storage,operations,locks=navigator.locks){
+ if(!locks)throw new Error('浏览器不支持安全的并发保存，请更新浏览器。');
+ return locks.request('daily-done:local-records',()=>writeOperations(storage,operations));
+}
+export function restoreSummary(current,backup){
+ const tasks=new Map(current.tasks.map(task=>[task.id,task]));
+ return {tasks:backup.tasks.filter(task=>tasks.has(task.id)&&JSON.stringify(tasks.get(task.id))!==JSON.stringify(task)).length,reflections:Object.entries(backup.reflections).filter(([date,note])=>Object.hasOwn(current.reflections,date)&&current.reflections[date]!==note).length};
+}
+export async function mergeWithCheckpoint(storage,backup,locks=navigator.locks){
+ if(!locks)throw new Error('浏览器不支持安全恢复，请更新浏览器。');
+ const valid=validateBackup(backup);
+ return locks.request('daily-done:local-records',()=>{
+  const current=readRecords(storage);
+  try{storage.setItem(CHECKPOINT,JSON.stringify({...current,exportedAt:new Date().toISOString()}));}catch{throw new Error('无法保存恢复前备份，已取消恢复；请先导出并释放存储空间。');}
+  return writeOperations(storage,[...valid.tasks.map(task=>({type:'put-task',task})),...Object.entries(valid.reflections).map(([date,note])=>({type:'put-reflection',date,note}))]);
+ });
+}
 export function readRecords(storage){
  let raw;
  try{raw=storage.getItem(KEY);}catch{throw new Error('浏览器禁止读取本地存储，请允许网站存储数据后重试。');}
