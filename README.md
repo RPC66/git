@@ -4,6 +4,10 @@ GitHub Pages 本地版入口：https://rpc66.github.io/git/ 。网站文件在 `
 
 本地版数据仅保存在当前浏览器，不跨设备同步；清除浏览器数据会删除记录，请定期导出备份。原站云端记录可先导出 JSON，再在本地版导入。同一 GitHub Pages 域名下的网站共享浏览器存储来源，请勿在不信任的同域网站使用个人数据。
 
+网站左侧提供“GitHub 备份 / 恢复”。专用私有仓库为 [RPC66/daily-done-backups](https://github.com/RPC66/daily-done-backups)。在 GitHub 创建 fine-grained personal access token，仅选择此备份仓库，设置 Contents: Read and write 和有效期，在网站弹窗填写。令牌仅保存在页面内存中，刷新后需要重新输入，不会写入源码、本地存储或备份文件。请勿将令牌发到聊天中。
+
+点击“备份到 GitHub”创建独立 JSON 快照，旧备份保留；另一设备上使用相同仓库和令牌，点击“读取备份列表”，选择快照并点击“恢复所选备份”，确认后与本地记录合并，相同编号事项、相同日期感想以备份为准。此功能为手动备份与恢复，不会自动同步。备份操作拒绝公开仓库。功能检查：`node --test pages.test.mjs github-backup.test.mjs`。
+
 发布源为 `main` 分支 `/docs`，推送后 GitHub 自动发布。修改 `public/` 界面后运行 `node scripts/build-pages.mjs` 重新生成静态文件；`docs/storage.mjs` 是本地存储模块。检查命令：`node --test model.test.mjs pages.test.mjs`。
 
 原始云端版源码仍保存在 `app/`、`lib/` 等目录，需要服务端和 Cloudflare D1，原站地址：https://daily-done-oct21.neatvole65.chatgpt.site 。`.openai/hosting.json` 保留原站配置。GitHub Pages 只发布 `docs/`，不发布后端目录；仓库不包含线上账号、个人记录、会话或运行时密钥。下文为云端版说明。

@@ -1,0 +1,10 @@
+<dialog id="github-dialog" aria-labelledby="github-title"><div class="dialog-heading"><h2 id="github-title">GitHub 私有备份</h2><button id="github-close" aria-label="关闭 GitHub 备份">×</button></div>
+<p>将记录备份到你自己的私有仓库。每次创建独立快照，历史备份会保留；恢复前可确认内容。</p>
+<label>备份仓库<input id="github-repo" value="RPC66/daily-done-backups" spellcheck="false" autocomplete="off"></label>
+<p class="muted">首次使用：<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">在 GitHub 创建细粒度令牌 ↗</a>，仅选择 daily-done-backups 仓库，仓库权限 Contents 设为 Read and write，并设置有效期。</p>
+<label>GitHub 令牌<input id="github-token" type="password" placeholder="仅本次页面使用，不保存到浏览器" autocomplete="off" spellcheck="false"></label>
+<p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
+<div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
+<label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
+<div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
+<p id="github-status" role="status" aria-live="polite"></p></dialog>

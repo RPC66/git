@@ -28,6 +28,11 @@ function boot(){
 boot();
 `;
 app=app.replaceAll('已保存到云端','已保存到此浏览器').replaceAll('尚未保存到云端','尚未保存到浏览器').replaceAll('备份已合并到当前账号的云端记录。','备份已合并到此浏览器的记录。');
+app += `\nimport {setupGitHubBackup} from './github-backup.mjs';
+setupGitHubBackup({
+ async getBackup(){if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
+ async onRestore(backup){pendingImport=backup;$('#import-description').textContent=\`GitHub 备份含 \${backup.tasks.length} 件事项、\${Object.values(backup.reflections).filter(Boolean).length} 天感想。确认后合并到此浏览器；相同编号事项和相同日期感想以备份为准。\`;$('#import-dialog').showModal();}
+});\n`;
 let html=await readFile('public/diary.html','utf8');
 html=replace(html,'正在读取你的云端记录…','正在读取此浏览器的记录…');
 html=replace(html,'<a href="/login">返回登录</a>','<p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p>');
@@ -36,8 +41,11 @@ html=replace(html,'<span id="account-label">我的账号</span><a id="logout" hr
 html=html.replace(/^.*id="migration-banner".*\r?\n/m,'');
 html=replace(html,'给每一天，留一点成长的证据。','数据仅保存在当前浏览器，不跨设备同步。清理浏览器数据会删除记录，请定期导出备份。');
 html=replace(html,'<link rel="stylesheet"','<link rel="icon" href="favicon.svg"><link rel="stylesheet"');
+html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file"');
+html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
 await writeFile('docs/index.html',html);
 await writeFile('docs/app.mjs',app);
 for(const file of ['style.css','model.mjs','sync.mjs','favicon.svg'])await copyFile(`public/${file}`,`docs/${file}`);
+await writeFile('docs/style.css','\n.github-entry{display:block;margin:12px auto 0;color:#235948;font-size:12px}.github-actions{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}#github-dialog{max-width:560px;width:calc(100% - 32px);max-height:90dvh;overflow:auto}#github-dialog p{font-size:13px;line-height:1.7}#github-dialog label{display:block;margin:14px 0}#github-dialog input,#github-dialog select{width:100%;box-sizing:border-box;margin-top:7px}#github-dialog a{text-decoration:underline}#github-status{min-height:24px;overflow-wrap:anywhere}\n',{flag:'a'});
 await writeFile('docs/.nojekyll','');
 console.log('GitHub Pages files prepared in docs/');

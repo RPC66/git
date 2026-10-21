@@ -1,0 +1,31 @@
+import {validateBackup} from './model.mjs';
+const API='https://api.github.com';
+export function encodeBackup(data){const bytes=new TextEncoder().encode(JSON.stringify({...validateBackup(data),exportedAt:new Date().toISOString()},null,2));let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary);}
+export function decodeBackup(content){const binary=atob(content.replace(/\s/g,''));return validateBackup(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(binary,c=>c.charCodeAt(0)))));}
+export function createClient(token,request=fetch){
+ async function api(path,options={}){
+  let response;try{response=await request(API+path,{...options,headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2026-03-10'},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});}catch{throw new Error('无法连接 GitHub，请检查网络后重试。');}
+  if(!response.ok){const messages={401:'授权已失效，请重新填写令牌。',403:'没有操作权限或请求过于频繁，请检查令牌权限后重试。',404:'仓库或备份不存在，或令牌没有该仓库的权限。',409:'仓库发生冲突，请重试。',422:'GitHub 无法保存该备份，请稍后重试。'};throw new Error(messages[response.status]||'GitHub 请求失败，请稍后重试。');}
+  return response.json();
+ }
+ async function repository(name){if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(name))throw new Error('请填写 owner/repo 格式的仓库名称。');const repo=await api(`/repos/${name}`);if(repo.private!==true)throw new Error('请使用私有仓库，不能将个人记录备份到公开仓库。');return {base:`/repos/${name}`,branch:repo.default_branch};}
+ return {
+  async backup(name,data){const repo=await repository(name);const path=`backups/${new Date().toISOString().replace(/[:.]/g,'-')}-${crypto.randomUUID()}.json`;await api(`${repo.base}/contents/${path}`,{method:'PUT',body:JSON.stringify({message:'Back up Daily Done records',content:encodeBackup(data),branch:repo.branch})});return path;},
+  async list(name){const repo=await repository(name);const entries=await api(`${repo.base}/contents?ref=${encodeURIComponent(repo.branch)}`);if(!entries.some(e=>e.type==='dir'&&e.name==='backups'))return [];
+   const files=await api(`${repo.base}/contents/backups?ref=${encodeURIComponent(repo.branch)}`);return files.filter(f=>f.type==='file'&&/^backups\/[\w.-]+\.json$/.test(f.path)).sort((a,b)=>b.name.localeCompare(a.name));},
+  async restore(name,path){if(!/^backups\/[\w.-]+\.json$/.test(path))throw new Error('无效的备份路径。');const repo=await repository(name);const file=await api(`${repo.base}/contents/${path}?ref=${encodeURIComponent(repo.branch)}`);if(file.size>20*1024*1024||file.encoding!=='base64'||!file.content)throw new Error('备份过大或格式不支持，请从 GitHub 下载后使用文件导入。');try{return decodeBackup(file.content);}catch{throw new Error('备份文件格式有误，本地记录未改变。');}}
+ };
+}
+export function setupGitHubBackup({getBackup,onRestore}){
+ const $=id=>document.getElementById(id),dialog=$('github-dialog');let token='',busy=false;
+ const status=message=>$('github-status').textContent=message;
+ function client(){const entered=$('github-token').value.trim();if(entered){token=entered;$('github-token').value='';}if(!token)throw new Error('请先填写仅允许此备份仓库的 GitHub 令牌。');return createClient(token);}
+ async function run(action){if(busy)return;busy=true;dialog.querySelectorAll('button,input,select').forEach(e=>e.disabled=true);status('正在连接 GitHub…');try{await action();}catch(error){status(error.message);}finally{busy=false;dialog.querySelectorAll('button,input,select').forEach(e=>e.disabled=false);}}
+ $('github-open').onclick=()=>{status(token?'授权已在本次页面中就绪。':'首次使用请填写 GitHub 令牌。');dialog.showModal();};
+ $('github-close').onclick=()=>{if(!busy){$('github-token').value='';dialog.close();}};
+ dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();else $('github-token').value='';});
+ $('github-disconnect').onclick=()=>{token='';$('github-token').value='';$('github-files').replaceChildren();status('已清除本次页面中的授权。');};
+ $('github-save').onclick=()=>run(async()=>{const remote=client();const data=await getBackup();const path=await remote.backup($('github-repo').value.trim(),data);status(`备份成功：${data.tasks.length} 件事项，${Object.values(data.reflections).filter(Boolean).length} 天感想。已创建独立快照，可点击读取备份列表查看。`);});
+ $('github-list').onclick=()=>run(async()=>{const files=await client().list($('github-repo').value.trim());$('github-files').replaceChildren();for(const file of files){const option=document.createElement('option');option.value=file.path;option.textContent=file.name;$('github-files').append(option);}status(files.length?`找到 ${files.length} 份备份，请选择后点击“恢复所选备份”。`:'仓库暂无备份，请先备份一次。');});
+ $('github-restore').onclick=()=>run(async()=>{if(!$('github-files').value)throw new Error('请先读取列表并选择一份备份。');const backup=await client().restore($('github-repo').value.trim(),$('github-files').value);dialog.close();await onRestore(backup);});
+}

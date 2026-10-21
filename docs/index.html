@@ -6,7 +6,7 @@
 <aside class="sidebar">
  <a class="brand" href="#today"><span class="brand-icon">✳</span><span>日有所成<small>MAKE ROOM FOR PROGRESS</small></span></a>
  <nav aria-label="主导航"><button class="nav active" id="nav-today"><span>◷</span> 每日记录</button><button class="nav" id="nav-review"><span>▤</span> 时光回顾</button></nav>
- <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><p>慢慢来，每一步都算数。</p><span class="storage-label"><i></i> <span id="sync-state">本地记录</span><button id="retry-sync" hidden>重试</button></span><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><input hidden id="import-file" type="file" accept=".json,application/json"></div>
+ <div class="sidebar-bottom"><div class="little-plant" aria-hidden="true"><svg viewBox="0 0 140 130"><path d="M70 110V45M70 85Q32 88 28 50Q62 47 70 85M70 66Q105 68 110 28Q74 28 70 66" fill="#c4d6b9" stroke="#537963" stroke-width="2"/><path d="M45 109h50l-6 18H51z" fill="#e2bfa2"/></svg></div><p>慢慢来，每一步都算数。</p><span class="storage-label"><i></i> <span id="sync-state">本地记录</span><button id="retry-sync" hidden>重试</button></span><div class="backup-actions"><button id="export">导出备份 ↗</button><button id="import">导入</button></div><button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file" type="file" accept=".json,application/json"></div>
 </aside>
 <main>
  <header class="topbar"><span id="top-date"></span><div class="account-panel"><span class="account-dot">●</span><span id="account-label" title="记录仅保存在此浏览器，不会跨设备同步">浏览器本地版</span></div></header>
@@ -28,5 +28,16 @@
 <dialog id="edit-dialog"><form id="edit-form"><div class="dialog-heading"><h2>编辑这份完成</h2><button type="button" id="close-edit" aria-label="关闭">×</button></div><label>完成事项<input id="edit-title" maxlength="150" required></label><div class="form-row"><label>完成日期<input type="date" id="edit-date" required></label><label>分类<select id="edit-category"><option>学习</option><option>工作</option><option>生活</option><option>健康</option><option>其他</option></select></label></div><label>耗时（分钟，可填 0）<input type="number" id="edit-minutes" min="0" max="1440" step="1" required></label><label>补充笔记<textarea id="edit-note" maxlength="2000" placeholder="做了什么、有什么收获……"></textarea></label><button class="primary-button" type="submit">保存修改</button></form></dialog>
 <dialog id="import-dialog"><div class="dialog-heading"><h2>导入备份</h2><button id="cancel-import" aria-label="关闭">×</button></div><p id="import-description"></p><p class="muted">相同编号的事项以备份为准；已有的其他事项会保留。相同日期的感想以备份为准。</p><button id="confirm-import" class="primary-button">合并到我的记录</button></dialog>
 <div id="toast" role="status" aria-live="polite" hidden><span id="toast-message"></span><button id="undo" hidden>撤销</button></div>
+<dialog id="github-dialog" aria-labelledby="github-title"><div class="dialog-heading"><h2 id="github-title">GitHub 私有备份</h2><button id="github-close" aria-label="关闭 GitHub 备份">×</button></div>
+<p>将记录备份到你自己的私有仓库。每次创建独立快照，历史备份会保留；恢复前可确认内容。</p>
+<label>备份仓库<input id="github-repo" value="RPC66/daily-done-backups" spellcheck="false" autocomplete="off"></label>
+<p class="muted">首次使用：<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">在 GitHub 创建细粒度令牌 ↗</a>，仅选择 daily-done-backups 仓库，仓库权限 Contents 设为 Read and write，并设置有效期。</p>
+<label>GitHub 令牌<input id="github-token" type="password" placeholder="仅本次页面使用，不保存到浏览器" autocomplete="off" spellcheck="false"></label>
+<p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
+<div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
+<label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
+<div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
+<p id="github-status" role="status" aria-live="polite"></p></dialog>
+
 <script type="module" src="app.mjs"></script>
 </body></html>
