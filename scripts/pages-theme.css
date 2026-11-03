@@ -16,3 +16,4 @@ dialog{background:#fff;border-color:var(--line);max-width:570px;padding:28px}.di
 /* Use the full available width and give cards more breathing room. */
 @media(min-width:801px){main{max-width:none;padding-left:clamp(28px,3vw,56px);padding-right:clamp(24px,2.5vw,48px)}.workspace{gap:36px}.task-list{gap:14px}.task{padding:22px}.stats{margin-bottom:40px}.reflection-card{margin-top:32px}.section-heading{margin-bottom:22px}.quick-options{margin-top:22px;padding-top:20px}}
 @media(min-width:1500px){.workspace{grid-template-columns:minmax(0,1fr) minmax(340px,24%);gap:42px}.calendar-grid button{height:46px}}
+@media(max-width:800px){.topbar{height:auto;min-height:64px;flex-wrap:wrap;gap:8px;padding:12px 0}.account-panel{min-width:0}#account-label{overflow-wrap:anywhere}}

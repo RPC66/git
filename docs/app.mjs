@@ -1,6 +1,6 @@
 import {CATEGORIES,dayKey,parseDay,validDay,shiftDay,weekStart,inRange,streak,validateBackup} from './model.mjs';
 import {diffRecords} from './sync.mjs';
-import {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=2';
+import {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=3';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)],KEY='daily-done-v1';
 const empty=()=>({version:1,tasks:[],reflections:{}});
 let data=empty(),selected=dayKey(),month=selected.slice(0,7),view='today',period='week',editId=null,pendingImport=null,undoAction=null,toastTimer;
@@ -49,7 +49,7 @@ $('#cancel-import').onclick=()=>{if(pendingSaves)return;$('#import-dialog').clos
 $('#undo').onclick=()=>{const action=undoAction;undoAction=null;if(action)action();};
 
 function refresh(){
- if(pendingSaves||draftNotes.size||document.hidden)return;
+ if(pendingSaves||draftNotes.size||document.hidden||document.activeElement?.id==='reflection'||$('#edit-dialog').open)return;
  try{data=readRecords(localStorage);render();syncState('已保存到此浏览器');}
  catch(error){syncState('本地记录无法读取',true);toast(error.message);}
 }
@@ -64,8 +64,9 @@ function boot(){
 }
 boot();
 
-import {setupGitHubBackup} from './github-backup.mjs?v=d113d8d278c8';
+import {setupGitHubBackup} from './github-backup.mjs?v=f7e34382cf3d';
 setupGitHubBackup({
+ onSynced(){refresh();},
  async getBackup({includeDrafts=false}={}){
  if(includeDrafts){if($('#edit-dialog').open)throw new Error('请先保存或关闭事项编辑窗口，再上传备份。');const input=$('#quick-title'),title=input.value.trim();if(title){if(!$('#quick-form').reportValidity())throw new Error('请检查事项的耗时等输入。');const task={id:crypto.randomUUID(),title,date:selected,category:$('#quick-category').value,minutes:Number($('#quick-minutes').value)||0,note:''};await saveOperations([{type:'put-task',task}]);if(input.value.trim()===title){input.value='';$('#quick-minutes').value='';}render();}}
  if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},

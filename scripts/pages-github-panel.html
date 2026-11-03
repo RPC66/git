@@ -1,15 +1,16 @@
-<dialog id="github-dialog" aria-labelledby="github-title"><div class="dialog-heading"><h2 id="github-title">GitHub 私有备份</h2><button id="github-close" aria-label="关闭 GitHub 备份">×</button></div>
-<p>将记录备份到你自己的私有仓库。每次创建独立快照，历史备份会保留；恢复前可确认内容。</p>
+<dialog id="github-dialog" aria-labelledby="github-title"><div class="dialog-heading"><h2 id="github-title">手机与电脑同步</h2><button id="github-close" aria-label="关闭同步设置">×</button></div>
+<p>在手机和电脑分别连接同一个 GitHub 私有仓库。首次连接会自动合并本机记录与最新旧版备份，并保留迁移副本；原有历史备份不会删除。</p>
 <label>备份仓库<input id="github-repo" value="RPC66/daily-done-backups" spellcheck="false" autocomplete="off"></label>
 <p class="muted">首次使用：<a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">在 GitHub 创建细粒度令牌 ↗</a>，仅选择 daily-done-backups 仓库，仓库权限 Contents 设为 Read and write，并设置有效期。</p>
-<label>GitHub 令牌<input id="github-token" type="password" placeholder="仅本次页面使用，不保存到浏览器" autocomplete="off" spellcheck="false"></label>
-<p class="muted">令牌只在当前页面内存中使用，仅发送至 GitHub。刷新后需重新填写；不要把令牌发到聊天中。</p>
-<p>启用时立即备份，成功后才开启自动备份。之后有未备份修改时，最多等待 10 分钟就自动备份，持续编辑不会推迟；失败会稍后重试。同一浏览器的多个标签页会协调并跳过重复内容。页面需保持打开；关闭页面或电脑休眠会阻止或延迟备份。刷新后重新启用会先备份当前全部记录。</p>
-<button id="github-enable-auto" class="outline">启用自动备份</button>
-<label><input id="github-allow-empty" type="checkbox" style="display:inline;width:auto;min-height:0;margin-right:8px">允许上传空记录（仅在确认不需要先恢复历史记录时勾选）</label>
-<div class="github-actions"><button id="github-save" class="primary-button">备份到 GitHub</button><button id="github-list" class="outline">读取备份列表</button></div>
+<label>GitHub 令牌<input id="github-token" type="password" placeholder="填写仅限此私有仓库的令牌" autocomplete="off" spellcheck="false"></label>
+<label><input id="github-remember" type="checkbox" style="display:inline;width:auto;min-height:0;margin-right:8px">在这台个人设备上记住授权，下次自动连接</label>
+<p class="muted">默认仅本次页面使用；勾选后令牌会保存在本浏览器，请只在个人设备使用。“清除授权”可移除。令牌仅发送给 GitHub，不会写入备份，也不要发到聊天中。</p>
+<p>保存后约 2 秒上传；页面打开时约每 30 秒读取另一端更新，切回页面和恢复联网时立即检查。关闭页面、后台限速或休眠会延迟同步。离线修改保留在本机，下次连接继续合并。同一条记录同时修改时按修订顺序确定显示版本，所有旧版本仍可下载找回。</p>
+<button id="github-enable-auto" class="primary-button">连接并同步</button>
+<div class="github-actions"><button id="github-save" class="outline">同步并另存备份</button><button id="github-list" class="outline">读取历史备份列表</button></div>
 <label>历史备份<select id="github-files" aria-label="历史备份"><option value="">请先读取备份列表</option></select></label>
 <div class="github-actions"><button id="github-restore" class="outline">恢复所选备份</button><button id="github-disconnect">清除授权</button></div>
-<p id="github-auto-status" role="status" aria-live="polite">自动备份待授权</p>
+<p id="github-auto-status" role="status" aria-live="polite">双向同步待连接</p>
+<div class="github-actions"><button id="download-migration" class="outline">下载迁移前备份</button><button id="download-history" class="outline">下载全部历史版本</button></div>
 <button id="download-checkpoint" class="outline">下载上次恢复前的备份</button>
 <p id="github-status" role="status" aria-live="polite"></p></dialog>

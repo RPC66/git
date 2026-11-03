@@ -1,6 +1,26 @@
 import {validateBackup} from './model.mjs';
+import {appendChanges,seedState,validateState,mergeStates,materialize} from './sync-state.mjs?v=1';
 export const KEY='daily-done-v1';
 export const CHECKPOINT='daily-done:before-restore';
+export const MIGRATION='daily-done:before-device-sync';
+export function readSyncState(storage){
+ const records=readRecords(storage),raw=storage.getItem(KEY),saved=raw?JSON.parse(raw):null;
+ return saved?._sync?validateState(saved._sync):seedState(records,'device-'+crypto.randomUUID());
+}
+export async function prepareSync(storage,locks=navigator.locks){
+ if(!locks)throw new Error('请更新浏览器后再启用双向同步。');
+ return locks.request('daily-done:local-records',()=>{
+  const current=readRecords(storage);if(!storage.getItem(MIGRATION))storage.setItem(MIGRATION,JSON.stringify(current));
+  const state=readSyncState(storage);storage.setItem(KEY,JSON.stringify({...current,_sync:state}));return state;
+ });
+}
+export async function acceptSync(storage,remote,locks=navigator.locks){
+ if(!locks)throw new Error('请更新浏览器后再启用双向同步。');
+ return locks.request('daily-done:local-records',()=>{
+  const state=mergeStates(readSyncState(storage),remote),records=materialize(state);
+  storage.setItem(KEY,JSON.stringify({...records,_sync:state}));return records;
+ });
+}
 export async function writeRecordsLocked(storage,operations,locks=navigator.locks){
  if(!locks)throw new Error('浏览器不支持安全的并发保存，请更新浏览器。');
  return locks.request('daily-done:local-records',()=>writeOperations(storage,operations));
@@ -35,6 +55,7 @@ export function writeOperations(storage,operations){
  }
  next.tasks=[...tasks.values()];
  const valid=validateBackup(next);
- try{storage.setItem(KEY,JSON.stringify(valid));}catch{throw new Error('保存失败：浏览器存储空间不足或存储被禁用。请先导出备份。');}
+ const state=appendChanges(readSyncState(storage),operations);
+ try{storage.setItem(KEY,JSON.stringify({...valid,_sync:state}));}catch{throw new Error('保存失败：浏览器存储空间不足或存储被禁用。请先导出备份。');}
  return valid;
 }

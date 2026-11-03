@@ -5,7 +5,7 @@ const hash=text=>createHash('sha256').update(text).digest('hex').slice(0,12);
 await mkdir('docs',{recursive:true});
 const replace=(text,from,to)=>{if(!text.includes(from))throw new Error(`Missing source fragment: ${from.slice(0,60)}`);return text.replace(from,to);};
 let app=await readFile('public/app.mjs','utf8');
-app=replace(app,"import {diffRecords,operationBatches} from './sync.mjs';","import {diffRecords} from './sync.mjs';\nimport {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=2';");
+app=replace(app,"import {diffRecords,operationBatches} from './sync.mjs';","import {diffRecords} from './sync.mjs';\nimport {readRecords,writeRecordsLocked,mergeWithCheckpoint,restoreSummary,CHECKPOINT} from './storage.mjs?v=3';");
 app=replace(app,'let account=null,transport=Promise.resolve(),pendingSaves=0,legacy=null;','let transport=Promise.resolve(),pendingSaves=0;');
 const apiStart=app.indexOf('async function api('),apiEnd=app.indexOf('function saveOperations(',apiStart);
 app=app.slice(0,apiStart)+app.slice(apiEnd);
@@ -17,7 +17,7 @@ app=replace(app,"$('#import-dialog').showModal();","const conflicts=restoreSumma
 const refreshStart=app.indexOf('async function refresh()');
 app=app.slice(0,refreshStart)+`
 function refresh(){
- if(pendingSaves||draftNotes.size||document.hidden)return;
+ if(pendingSaves||draftNotes.size||document.hidden||document.activeElement?.id==='reflection'||$('#edit-dialog').open)return;
  try{data=readRecords(localStorage);render();syncState('已保存到此浏览器');}
  catch(error){syncState('本地记录无法读取',true);toast(error.message);}
 }
@@ -35,6 +35,7 @@ boot();
 app=app.replaceAll('已保存到云端','已保存到此浏览器').replaceAll('尚未保存到云端','尚未保存到浏览器').replaceAll('备份已合并到当前账号的云端记录。','备份已合并到此浏览器的记录。');
 app += `\nimport {setupGitHubBackup} from './github-backup.mjs';
 setupGitHubBackup({
+ onSynced(){refresh();},
  async getBackup({includeDrafts=false}={}){
  if(includeDrafts){if($('#edit-dialog').open)throw new Error('请先保存或关闭事项编辑窗口，再上传备份。');const input=$('#quick-title'),title=input.value.trim();if(title){if(!$('#quick-form').reportValidity())throw new Error('请检查事项的耗时等输入。');const task={id:crypto.randomUUID(),title,date:selected,category:$('#quick-category').value,minutes:Number($('#quick-minutes').value)||0,note:''};await saveOperations([{type:'put-task',task}]);if(input.value.trim()===title){input.value='';$('#quick-minutes').value='';}render();}}
  if(!await flushDrafts())throw new Error('请先重试保存感想，或导出本地备份。');return readRecords(localStorage);},
@@ -42,17 +43,17 @@ setupGitHubBackup({
 });\n`;
 app+=`\n$('#download-checkpoint').onclick=()=>{try{const raw=localStorage.getItem(CHECKPOINT);if(!raw)throw new Error('暂无恢复前备份');validateBackup(JSON.parse(raw));const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='日有所成-恢复前备份.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){toast(error.message);}};\n`;
 let html=await readFile('public/diary.html','utf8');
-html=replace(html,'<div id="daily-list" class="task-list"></div>','<div id="daily-list" class="task-list"></div><div class="save-backup-control"><span id="save-backup-status" role="status" aria-live="polite"></span><button id="save-backup" type="button" class="outline" aria-label="保存并上传 GitHub 备份" title="保存并上传 GitHub 备份">√</button></div>');
+html=replace(html,'<div id="daily-list" class="task-list"></div>','<div id="daily-list" class="task-list"></div><div class="save-backup-control"><span id="save-backup-status" role="status" aria-live="polite"></span><button id="save-backup" type="button" class="outline" aria-label="立即同步手机与电脑" title="立即同步手机与电脑">√</button></div>');
 html=replace(html,'<p>慢慢来，每一步都算数。</p>','');
 html=replace(html,'<span class="storage-label"><i></i> <span id="sync-state">云端记录</span><button id="retry-sync" hidden>重试</button></span>','<span id="sync-state" hidden>云端记录</span><button id="retry-sync" hidden>重试保存</button>');
 html=replace(html,'正在读取你的云端记录…','正在读取此浏览器的记录…');
 html=replace(html,'<a href="/login">返回登录</a>','<p>本地数据未被覆盖。请检查浏览器存储权限后重试。</p>');
 html=replace(html,'<span id="sync-state" hidden>云端记录</span>','<span id="sync-state" hidden>本地记录</span>');
-html=replace(html,'<span id="account-label">我的账号</span><a id="logout" href="/signout-with-chatgpt?return_to=%2Flogin" target="_top">退出</a>','<span id="account-label" title="记录仅保存在此浏览器，不会跨设备同步">浏览器本地版</span>');
+html=replace(html,'<span id="account-label">我的账号</span><a id="logout" href="/signout-with-chatgpt?return_to=%2Flogin" target="_top">退出</a>','<span id="account-label" title="连接同一个 GitHub 私有仓库即可在手机与电脑同步">本机记录 · 未连接同步</span>');
 html=html.replace(/^.*id="migration-banner".*\r?\n/m,'');
-html=replace(html,'给每一天，留一点成长的证据。','数据仅保存在当前浏览器，不跨设备同步。清理浏览器数据会删除记录，请定期导出备份。');
+html=replace(html,'给每一天，留一点成长的证据。','记录保存在本机；连接 GitHub 后手机与电脑自动双向同步。原有备份与修改历史保留。');
 html=replace(html,'<link rel="stylesheet"','<link rel="icon" href="favicon.svg"><link rel="stylesheet"');
-html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">GitHub 备份 / 恢复 ↗</button><input hidden id="import-file"');
+html=replace(html,'<input hidden id="import-file"','<button id="github-open" class="github-entry">手机 / 电脑同步 ↗</button><input hidden id="import-file"');
 html=replace(html,'<script type="module"',`${await readFile('scripts/pages-github-panel.html','utf8')}\n<script type="module"`);
 app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
 html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);
