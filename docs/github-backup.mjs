@@ -1,5 +1,5 @@
 import {validateBackup} from './model.mjs';
-import {synchronizeDevice} from './device-sync.mjs?v=1';
+import {synchronizeDevice} from './device-sync.mjs?v=2';
 import {readSyncState,MIGRATION} from './storage.mjs?v=3';
 import {recoveryBackup} from './sync-state.mjs?v=1';
 import {validateState} from './sync-state.mjs?v=1';

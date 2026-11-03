@@ -64,6 +64,16 @@ test('network or invalid remote state cannot replace local records; retry retain
  assert.ok(storage.getItem(MIGRATION));assert.equal(readSyncState(storage).changes.length,1);
  remote.readState=async()=>({state:{bad:true},sha:'bad'});await assert.rejects(sync(remote,storage));assert.deepEqual(readRecords(storage),records(task('local')));
 });
+test('failed first sync cannot hide the old cloud backup behind a newer migration snapshot',async()=>{
+ const remote=server(records(task('cloud-original'))),storage=memory(records(task('local-original'))),write=remote.writeState.bind(remote);
+ remote.list=async()=>[{path:remote.snapshots.length?'backups/new-local-copy.json':'backups/old-cloud.json'}];
+ remote.restore=async(repo,path)=>path.includes('new-local-copy')?remote.snapshots.at(-1):records(task('cloud-original'));
+ remote.writeState=async()=>{throw new Error('network interrupted');};
+ await assert.rejects(sync(remote,storage),/interrupted/);
+ assert.equal(readRecords(storage).tasks.length,2);
+ remote.writeState=write;await sync(remote,storage);
+ assert.deepEqual(new Set(materialize(remote.state).tasks.map(t=>t.id)),new Set(['cloud-original','local-original']));
+});
 test('CAS retry reads a competing writer again and merges rather than overwriting',async()=>{
  const remote=server(),storage=memory(records(task('mine')));let injected=false;const write=remote.writeState.bind(remote);
  remote.writeState=async(repo,state,sha)=>{if(!injected){injected=true;await write(repo,seedState(records(task('theirs'))),'initial-wrong-sha').catch(async()=>write(repo,seedState(records(task('theirs'))),null));const error=new Error('conflict');error.status=409;throw error;}return write(repo,state,sha);};

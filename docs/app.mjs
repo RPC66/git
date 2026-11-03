@@ -64,7 +64,7 @@ function boot(){
 }
 boot();
 
-import {setupGitHubBackup} from './github-backup.mjs?v=f7e34382cf3d';
+import {setupGitHubBackup} from './github-backup.mjs?v=4a08cf8451d8';
 setupGitHubBackup({
  onSynced(){refresh();},
  async getBackup({includeDrafts=false}={}){

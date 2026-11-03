@@ -9,10 +9,14 @@ export async function synchronizeDevice({client,repository,storage,locks=navigat
   for(let attempt=0;attempt<5;attempt++){
    const remote=await client.readState(repository);let state=remote.state;
    if(!state){const files=await client.list(repository);state=files.length?seedState(await client.restore(repository,files[0].path),'legacy:'+files[0].path):emptyState();}
+   const local=readSyncState(storage),merged=storage.getItem(joined)?mergeStates(state,local):preserveMigrationVariants(local,state);
+   // Persist the imported legacy revisions before creating a new snapshot. If
+   // the initial upload fails, that newer local snapshot cannot hide the source
+   // snapshot on the next attempt; both sets of records are already durable.
+   if(!storage.getItem(joined))await acceptSync(storage,merged,locks);
    // Capture the pre-migration local copy before changing either device. Existing
    // snapshots remain untouched, including when a second device joins later.
    if(!protectedLocal){const original=JSON.parse(storage.getItem(MIGRATION));if(original.tasks.length||Object.values(original.reflections).some(Boolean))await client.backup(repository,original);storage.setItem(marker,'protected');protectedLocal=true;}
-   const local=readSyncState(storage),merged=storage.getItem(joined)?mergeStates(state,local):preserveMigrationVariants(local,state);
    try{
     if(!remote.state||JSON.stringify(merged)!==JSON.stringify(mergeStates(remote.state)))await client.writeState(repository,merged,remote.sha);
    }catch(error){if(error.status===409||error.status===422)continue;throw error;}
