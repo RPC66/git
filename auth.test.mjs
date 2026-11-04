@@ -6,6 +6,7 @@ import { createHmac,createHash } from 'node:crypto';
 import { createJournalService,normalizePhone } from './lib/journal-service.mjs';
 import { tencentRequest } from './lib/sms.mjs';
 import { diffRecords,operationBatches } from './public/sync.mjs';
+import {emptyState,seedState,mergeStates,appendChanges,materialize} from './public/app/sync-state.mjs';
 const origin='https://journal.test';
 const phoneA='13900000001',phoneB='13900000002';
 const env={PHONE_LOGIN_ENABLED:'true',AUTH_PEPPER:'test-only-pepper-with-at-least-32-characters',TENCENT_SMS_SECRET_ID:'test-id',TENCENT_SMS_SECRET_KEY:'test-secret',TENCENT_SMS_APP_ID:'test-app',TENCENT_SMS_SIGN_NAME:'test-sign',TENCENT_SMS_TEMPLATE_ID:'test-template'};
@@ -109,4 +110,49 @@ test('email validation, consent, rate limit and account isolation hold',async()=
 });
 test('invalid app sessions never silently switch to the platform account',async()=>{
  const f=fixture({platformUser:{userId:'owner-id',displayName:'Owner'}});assert.equal((await (await f.request('/api/me',undefined,'__Host-daily_session=invalid')).json()).user,null);
+});
+
+async function appRequest(f,path,{body,token,origin:requestOrigin='https://rpc66.github.io',method}={}){
+ return f.service.handle(new Request(origin+'/api/app/'+path,{method:method||(body===undefined?'GET':'POST'),headers:{Origin:requestOrigin,...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{}),'cf-connecting-ip':'192.0.2.90'},body:body===undefined?undefined:JSON.stringify(body)}));
+}
+async function appRegister(f,email='app@example.com'){
+ const response=await appRequest(f,'auth/email/register',{body:{email,password:'App only long passphrase 2026',confirmed:true}});assert.equal(response.status,200);return response.json();
+}
+test('installed app email sessions support exact GitHub origin CORS and never leak tokens to the old login API',async()=>{
+ const f=fixture(),registered=await appRegister(f);
+ assert.match(registered.token,/^[a-f0-9]{64}$/);assert.equal(registered.expiresAt,1792558800+30*86400);
+ const preflight=await appRequest(f,'sync',{method:'OPTIONS'});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),'https://rpc66.github.io');assert.match(preflight.headers.get('access-control-allow-headers'),/Authorization/);
+ const me=await appRequest(f,'me',{token:registered.token});assert.equal(me.status,200);assert.equal((await me.json()).user.id,registered.user.id);
+ assert.equal((await appRequest(f,'me',{token:registered.token,origin:'https://attacker.test'})).status,403);
+ assert.equal((await appRequest(f,'sync')).status,401);
+ const old=await f.request('/api/auth/email/login',{email:'app@example.com',password:'App only long passphrase 2026'});assert.equal(old.status,200);assert.equal((await old.json()).token,undefined);
+ await appRequest(f,'auth/logout',{token:registered.token,body:{}});assert.equal((await appRequest(f,'me',{token:registered.token})).status,401);
+});
+test('installed app sync merges concurrent offline edits, supports deletes and isolates account data',async()=>{
+ const f=fixture(),a=await appRegister(f,'app-a@example.com'),b=await appRegister(f,'app-b@example.com');
+ const one=appendChanges(emptyState(),[{type:'put-task',task:sampleTask}],()=> 'change-a');
+ const two=appendChanges(emptyState(),[{type:'put-task',task:{...sampleTask,id:'phone-record',title:'手机记录'}}],()=> 'change-b');
+ const results=await Promise.all([appRequest(f,'sync',{token:a.token,body:{state:one}}),appRequest(f,'sync',{token:a.token,body:{state:two}})]);assert.ok(results.every(r=>r.status===200));
+ const merged=(await (await appRequest(f,'sync',{token:a.token})).json()).state;assert.equal(materialize(merged).tasks.length,2);
+ const other=(await (await appRequest(f,'sync',{token:b.token})).json()).state;assert.equal(materialize(other).tasks.length,0);
+ const deleted=appendChanges(merged,[{type:'delete-task',id:sampleTask.id}],()=> 'delete-a');await appRequest(f,'sync',{token:a.token,body:{state:deleted}});
+ await appRequest(f,'sync',{token:a.token,body:{state:one}});const final=(await (await appRequest(f,'sync',{token:a.token})).json()).state;assert.equal(materialize(final).tasks.length,1);assert.ok(final.changes.some(c=>c.value?.title===sampleTask.title));
+});
+test('existing cloud account records are seeded into the installed app without deleting old tables',async()=>{
+ const f=fixture(),a=await appRegister(f),id=a.user.id;
+ f.sqlite.prepare('INSERT INTO tasks(user_id,id,date,title,category,minutes,note,updated_at) VALUES (?,?,?,?,?,?,?,?)').run(id,sampleTask.id,sampleTask.date,sampleTask.title,sampleTask.category,sampleTask.minutes,sampleTask.note,1792558800);
+ const initial=await (await appRequest(f,'sync',{token:a.token})).json();assert.equal(materialize(initial.state).tasks[0].title,sampleTask.title);
+ const saved=await appRequest(f,'sync',{token:a.token,body:{state:initial.state}});assert.equal(saved.status,200);assert.equal(f.sqlite.prepare('SELECT count(*) AS n FROM tasks WHERE user_id=?').get(id).n,1);
+});
+test('bad or conflicting sync states and oversized bodies never overwrite account history',async()=>{
+ const f=fixture(),a=await appRegister(f),state=seedState({version:1,tasks:[sampleTask],reflections:{}},'test');
+ assert.equal((await appRequest(f,'sync',{token:a.token,body:{state}})).status,200);
+ assert.equal((await appRequest(f,'sync',{token:a.token,body:{state:{format:'broken'}}})).status,400);
+ const conflict=structuredClone(state);conflict.changes[0].value.title='changed with same revision';assert.equal((await appRequest(f,'sync',{token:a.token,body:{state:conflict}})).status,409);
+ assert.equal((await appRequest(f,'sync',{token:a.token,body:{state,padding:'x'.repeat(1024*1024)}})).status,413);
+ const remaining=await (await appRequest(f,'sync',{token:a.token})).json();assert.equal(materialize(remaining.state).tasks[0].title,sampleTask.title);
+});
+test('platform identity and cookie sessions cannot impersonate the installed app bearer session',async()=>{
+ const f=fixture({platformUser:{userId:'owner-id'}});assert.equal((await appRequest(f,'me')).status,401);
+ const a=await appRegister(f);f.advance(30*86400+1);assert.equal((await appRequest(f,'sync',{token:a.token})).status,401);
 });

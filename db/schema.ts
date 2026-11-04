@@ -10,6 +10,11 @@ export const emailCredentials = sqliteTable('email_credentials', {
 export const sessions = sqliteTable('sessions', {
   tokenHash: text('token_hash').primaryKey(), userId: text('user_id').notNull().references(() => accounts.id), expiresAt: integer('expires_at').notNull(),
 }, table => [index('sessions_expiry_idx').on(table.expiresAt)]);
+export const deviceSync = sqliteTable('device_sync', {
+  userId: text('user_id').primaryKey().references(() => accounts.id),
+  revision: integer('revision').notNull().default(1),
+  state: text('state').notNull(), updatedAt: integer('updated_at').notNull(),
+});
 export const phoneChallenges = sqliteTable('phone_challenges', {
   phoneKey: text('phone_key').primaryKey(), codeHash: text('code_hash').notNull(), expiresAt: integer('expires_at').notNull(), sentAt: integer('sent_at').notNull(), attempts: integer('attempts').notNull().default(0), ready: integer('ready').notNull().default(0),
 });
