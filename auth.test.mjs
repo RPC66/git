@@ -12,14 +12,21 @@ const phoneA='13900000001',phoneB='13900000002';
 const env={PHONE_LOGIN_ENABLED:'true',AUTH_PEPPER:'test-only-pepper-with-at-least-32-characters',TENCENT_SMS_SECRET_ID:'test-id',TENCENT_SMS_SECRET_KEY:'test-secret',TENCENT_SMS_APP_ID:'test-app',TENCENT_SMS_SIGN_NAME:'test-sign',TENCENT_SMS_TEMPLATE_ID:'test-template'};
 const sampleTask={id:'same-task-id',date:'2026-10-21',title:'完成阅读',category:'学习',minutes:25,note:'三个要点'};
 function fixture(options={}){
- const sqlite=new DatabaseSync(':memory:');for(const name of readdirSync(new URL('./drizzle/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort())sqlite.exec(readFileSync(new URL('./drizzle/'+name,import.meta.url),'utf8'));
+ const sqlite=new DatabaseSync(':memory:');for(const name of readdirSync(new URL('./drizzle/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort()){
+ if(name.startsWith('0003')){
+  for(const phone of [phoneA,phoneB])sqlite.prepare('INSERT INTO accounts(id,label,created_at) VALUES (?,?,?)').run('phone:'+createHmac('sha256',env.AUTH_PEPPER).update('phone:+86'+phone).digest('hex'),phone.slice(0,3)+'****'+phone.slice(-4),1792558800);
+  if(options.platformUser)sqlite.prepare('INSERT INTO accounts(id,label,created_at) VALUES (?,?,?)').run('chatgpt:'+options.platformUser.userId,options.platformUser.displayName||'当前账号',1792558800);
+ }
+ sqlite.exec(readFileSync(new URL('./drizzle/'+name,import.meta.url),'utf8'));
+ }
  function prepared(sql,args=[]){return {bind(...values){return prepared(sql,values);},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return {results:sqlite.prepare(sql).all(...args)};},async run(){const result=sqlite.prepare(sql).run(...args);return {meta:{changes:Number(result.changes)}};}};}
  const db={prepare:sql=>prepared(sql),async batch(statements){sqlite.exec('BEGIN');try{const values=[];for(const s of statements)values.push(await s.run());sqlite.exec('COMMIT');return values;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
  let time=1792558800;const sent=[];
  const service=createJournalService({db,env:{...env,...options.env},now:()=>time,sendSms:async(_env,phone,code)=>{if(options.failSms)throw Error('provider-error-with-sensitive-data');sent.push({phone,code});},platformUser:options.platformUser||null});
- async function request(path,body,cookie='',requestOrigin=origin){return service.handle(new Request(origin+path,{method:body===undefined?'GET':'POST',headers:{...(body===undefined?{}:{'Content-Type':'application/json',Origin:requestOrigin}),...(cookie?{Cookie:cookie}:{}),'cf-connecting-ip':'192.0.2.1'},body:body===undefined?undefined:JSON.stringify(body)}));}
+ async function request(path,body,cookie='',requestOrigin=origin){if(path.endsWith('/email/register')&&body&&!Object.hasOwn(body,'invitation'))body={...body,invitation:invite()};return service.handle(new Request(origin+path,{method:body===undefined?'GET':'POST',headers:{...(body===undefined?{}:{'Content-Type':'application/json',Origin:requestOrigin}),...(cookie?{Cookie:cookie}:{}),'cf-connecting-ip':'192.0.2.1'},body:body===undefined?undefined:JSON.stringify(body)}));}
  async function login(phone){assert.equal((await request('/api/auth/phone/send',{phone,consent:true})).status,200);const code=sent.at(-1).code;const result=await request('/api/auth/phone/verify',{phone,code});assert.equal(result.status,200);return result.headers.get('set-cookie').split(';')[0];}
- return {sqlite,db,service,sent,request,login,advance:n=>time+=n};
+ function invite({expires=time+86400,revoked=0}={}){const code=crypto.randomUUID().replaceAll('-','')+'0123456789abcdef';sqlite.prepare('INSERT INTO signup_invitations(token_hash,created_at,expires_at,revoked) VALUES (?,?,?,?)').run(createHash('sha256').update(code).digest('hex'),time,expires,revoked);return code;}
+ return {sqlite,db,service,sent,request,login,invite,advance:n=>time+=n};
 }
 test('phone normalization and disabled provider fail clearly',async()=>{
  assert.equal(normalizePhone('+86 139-0000-0001'),'+8613900000001');assert.throws(()=>normalizePhone('123'));assert.throws(()=>normalizePhone(null));
@@ -116,7 +123,7 @@ async function appRequest(f,path,{body,token,origin:requestOrigin='https://rpc66
  return f.service.handle(new Request(origin+'/api/app/'+path,{method:method||(body===undefined?'GET':'POST'),headers:{Origin:requestOrigin,...(body===undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{}),'cf-connecting-ip':'192.0.2.90'},body:body===undefined?undefined:JSON.stringify(body)}));
 }
 async function appRegister(f,email='app@example.com'){
- const response=await appRequest(f,'auth/email/register',{body:{email,password:'App only long passphrase 2026',confirmed:true}});assert.equal(response.status,200);return response.json();
+ const response=await appRequest(f,'auth/email/register',{body:{email,password:'App only long passphrase 2026',confirmed:true,invitation:f.invite()}});assert.equal(response.status,200);return response.json();
 }
 test('installed app email sessions support exact GitHub origin CORS and never leak tokens to the old login API',async()=>{
  const f=fixture(),registered=await appRegister(f);
@@ -155,4 +162,83 @@ test('bad or conflicting sync states and oversized bodies never overwrite accoun
 test('platform identity and cookie sessions cannot impersonate the installed app bearer session',async()=>{
  const f=fixture({platformUser:{userId:'owner-id'}});assert.equal((await appRequest(f,'me')).status,401);
  const a=await appRegister(f);f.advance(30*86400+1);assert.equal((await appRequest(f,'sync',{token:a.token})).status,401);
+});
+
+const invitedPassword='Invitation safe long password 2026';
+function invitedBody(email,invitation){return {email,password:invitedPassword,confirmed:true,invitation};}
+function fillAccounts(f,total){
+ while(f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n<total){
+  const code=f.invite(),id='email:capacity-'+crypto.randomUUID();
+  f.sqlite.prepare('UPDATE signup_invitations SET redeemed_by=?,redeemed_at=? WHERE token_hash=?').run(id,1792558800,createHash('sha256').update(code).digest('hex'));
+  f.sqlite.prepare('INSERT INTO accounts(id,label,created_at) VALUES (?,?,?)').run(id,'existing test account',1792558800);
+ }
+}
+test('both registration APIs require an invitation and store no raw invitation or password',async()=>{
+ const f=fixture(),before=f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n;
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('missing@example.com',undefined)})).status,403);
+ assert.equal((await f.request('/api/auth/email/register',invitedBody('legacy@example.com',''))).status,403);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n,before);
+ const invitation=f.invite();const r=await appRequest(f,'auth/email/register',{body:invitedBody('invited@example.com',invitation)});assert.equal(r.status,200);
+ const account=await r.json(),row=f.sqlite.prepare('SELECT * FROM signup_invitations WHERE redeemed_by=?').get(account.user.id);
+ assert.equal(row.token_hash,createHash('sha256').update(invitation).digest('hex'));assert.equal(JSON.stringify(row).includes(invitation),false);
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('second@example.com',invitation)})).status,403);
+ const login=await appRequest(f,'auth/email/login',{body:{email:'invited@example.com',password:invitedPassword}});assert.equal(login.status,200);assert.notEqual((await login.json()).token,account.token);
+});
+test('expired and revoked invitations cannot create an account',async()=>{
+ const f=fixture();for(const invitation of [f.invite({expires:1792558800}),f.invite({revoked:1}),'a'.repeat(48)]){
+  const r=await appRequest(f,'auth/email/register',{body:invitedBody(crypto.randomUUID()+'@example.com',invitation)});assert.equal(r.status,403);
+ }
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM email_credentials').get().n,0);
+});
+test('same invitation can create only one account during concurrent registration',async()=>{
+ const f=fixture(),invitation=f.invite();const results=await Promise.all(['one','two'].map(x=>appRequest(f,'auth/email/register',{body:invitedBody(x+'@example.com',invitation)})));
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,403]);assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM email_credentials').get().n,1);
+});
+test('database capacity cannot exceed 100 under concurrent registration and existing login still works',async()=>{
+ const f=fixture(),account=await appRegister(f);fillAccounts(f,99);const codes=[f.invite(),f.invite()];
+ const results=await Promise.all(codes.map((code,i)=>appRequest(f,'auth/email/register',{body:invitedBody('last-'+i+'@example.com',code)})));
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,403]);assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n,100);
+ const unspent=codes.filter(code=>!f.sqlite.prepare('SELECT redeemed_by FROM signup_invitations WHERE token_hash=?').get(createHash('sha256').update(code).digest('hex')).redeemed_by);assert.equal(unspent.length,1);
+ assert.equal((await appRequest(f,'auth/email/login',{body:{email:'app@example.com',password:'App only long passphrase 2026'}})).status,200);
+ assert.equal((await appRequest(f,'me',{token:account.token})).status,200);
+});
+test('failed duplicate registration does not consume its invitation or create an orphan account',async()=>{
+ const f=fixture();await appRegister(f);const invitation=f.invite();
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('app@example.com',invitation)})).status,409);
+ assert.equal(f.sqlite.prepare('SELECT redeemed_by FROM signup_invitations WHERE token_hash=?').get(createHash('sha256').update(invitation).digest('hex')).redeemed_by,null);
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('new@example.com',invitation)})).status,200);
+});
+test('database guards reject bypass writes; full registration transaction rolls back its invitation',()=>{
+ const f=fixture();assert.throws(()=>f.sqlite.prepare('INSERT INTO accounts VALUES (?,?,?)').run('email:bypass','bypass',1792558800),/INVITATION_REQUIRED/);
+ fillAccounts(f,100);const invitation=f.invite(),hash=createHash('sha256').update(invitation).digest('hex');
+ f.sqlite.exec('BEGIN');try{
+  f.sqlite.prepare('UPDATE signup_invitations SET redeemed_by=? WHERE token_hash=?').run('email:overflow',hash);
+  assert.throws(()=>f.sqlite.prepare('INSERT INTO accounts VALUES (?,?,?)').run('email:overflow','overflow',1792558800),/ACCOUNT_CAPACITY/);
+ }finally{f.sqlite.exec('ROLLBACK');}
+ assert.equal(f.sqlite.prepare('SELECT redeemed_by FROM signup_invitations WHERE token_hash=?').get(hash).redeemed_by,null);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n,100);
+});
+test('invitation migration preserves existing accounts, records and credentials',()=>{
+ const db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('./drizzle/',import.meta.url)).filter(n=>n.endsWith('.sql')&&!n.startsWith('0003')).sort())db.exec(readFileSync(new URL('./drizzle/'+file,import.meta.url),'utf8'));
+ db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('email:old','original',1);db.prepare('INSERT INTO email_credentials VALUES (?,?,?,?)').run('email:old','old@example.com','original-hash',1);
+ db.prepare('INSERT INTO tasks VALUES (?,?,?,?,?,?,?,?)').run('email:old','original-record','2026-10-21','旧记录','学习',10,'保留',1);
+ db.exec(readFileSync(new URL('./drizzle/0003_invitation_registration.sql',import.meta.url),'utf8'));
+ assert.equal(db.prepare('SELECT title FROM tasks').get().title,'旧记录');assert.equal(db.prepare('SELECT password_hash FROM email_credentials').get().password_hash,'original-hash');assert.equal(db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n,1);
+});
+test('configured invitation hashes provision once and cannot resurrect a used or revoked invitation',async()=>{
+ const code='b'.repeat(48),hash=createHash('sha256').update(code).digest('hex');
+ const f=fixture({env:{SIGNUP_INVITATIONS_JSON:JSON.stringify([{tokenHash:hash,createdAt:1792558800,expiresAt:1792558800+86400}])}});
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('configured@example.com',code)})).status,200);
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('reused@example.com',code)})).status,403);
+ const g=fixture({env:{SIGNUP_INVITATIONS_JSON:JSON.stringify([{tokenHash:hash,createdAt:1792558800,expiresAt:1792558800+86400}])}});
+ g.sqlite.prepare('INSERT INTO signup_invitations(token_hash,created_at,expires_at,revoked) VALUES (?,?,?,1)').run(hash,1792558800,1792558800+86400);
+ assert.equal((await appRequest(g,'auth/email/register',{body:invitedBody('revoked@example.com',code)})).status,403);
+});
+test('database failure rolls back account creation and leaves its invitation usable for retry',async()=>{
+ const f=fixture(),code=f.invite();f.sqlite.exec("CREATE TRIGGER test_credential_failure BEFORE INSERT ON email_credentials BEGIN SELECT RAISE(ABORT,'test storage failure'); END");
+ const before=f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n;
+ assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('retry@example.com',code)})).status,503);
+ assert.equal(f.sqlite.prepare('SELECT COUNT(*) AS n FROM accounts').get().n,before);
+ assert.equal(f.sqlite.prepare('SELECT redeemed_by FROM signup_invitations WHERE token_hash=?').get(createHash('sha256').update(code).digest('hex')).redeemed_by,null);
+ f.sqlite.exec('DROP TRIGGER test_credential_failure');assert.equal((await appRequest(f,'auth/email/register',{body:invitedBody('retry@example.com',code)})).status,200);
 });

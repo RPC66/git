@@ -1,4 +1,9 @@
 import { sqliteTable, text, integer, primaryKey, index } from 'drizzle-orm/sqlite-core';
+export const signupInvitations = sqliteTable('signup_invitations', {
+  tokenHash: text('token_hash').primaryKey(), createdAt: integer('created_at').notNull(),
+  expiresAt: integer('expires_at').notNull(), redeemedBy: text('redeemed_by').unique(),
+  redeemedAt: integer('redeemed_at'), revoked: integer('revoked').notNull().default(0),
+});
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(), label: text('label').notNull(), createdAt: integer('created_at').notNull(),
 });
