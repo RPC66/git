@@ -58,6 +58,7 @@ html=replace(html,'<script type="module"',`${await readFile('scripts/pages-githu
 app=app.replace("from './github-backup.mjs'",`from './github-backup.mjs?v=${hash(await readFile('docs/github-backup.mjs'))}'`);
 html=replace(html,'src="app.mjs"',`src="app.mjs?v=${hash(app)}"`);
 html=replace(html,'href="style.css"',`href="style.css?v=${hash(Buffer.concat([await readFile('public/style.css'),await readFile('scripts/pages-theme.css')]))}-github1"`);
+html=html.replace('</body>','<script type="module" src="team/original-runner.mjs"></script>\n</body>');
 await writeFile('docs/index.html',html);
 await writeFile('docs/app.mjs',app);
 for(const file of ['style.css','model.mjs','sync.mjs','favicon.svg'])await copyFile(`public/${file}`,`docs/${file}`);
