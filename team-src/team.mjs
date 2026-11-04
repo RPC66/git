@@ -1,7 +1,7 @@
 import {createTeamClient} from './github-team.mjs';
 import {syncTeam} from './team-sync.mjs';
 import {canBridge,mergeOriginalAndTeam} from './original-bridge.mjs';
-import {weekRange,weekRecords,moveWeek} from './review-week.mjs';
+import {weekRange,weekRecords,moveWeek,weekInsights} from './review-week.mjs';
 import {dayKey,validateBackup,inRange,streak} from './model.mjs';
 import {emptyState,mergeStates,preserveMigrationVariants,materialize,seedState} from './sync-state.mjs';
 import {readRecords,readSyncState,prepareSync,acceptSync,writeRecordsLocked,mergeWithCheckpoint} from './storage.mjs';
@@ -11,8 +11,56 @@ function namespace(name){const prefix='daily-done:team:'+encodeURIComponent(repo
 function renderSummary(data,owner){const today=dayKey();$('today-label').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});$('stat-week').replaceChildren(document.createTextNode(String(data.tasks.filter(t=>inRange(t.date,today,'week')).length)),Object.assign(document.createElement('small'),{textContent:'件事'}));$('stat-streak').replaceChildren(document.createTextNode(String(streak(data.tasks,today))),Object.assign(document.createElement('small'),{textContent:'天'}));$('stat-all').replaceChildren(document.createTextNode(String(data.tasks.length)),Object.assign(document.createElement('small'),{textContent:'件事'}));const date=viewDate,[year,month]=(calendarMonth||date.slice(0,7)).split('-').map(Number),first=new Date(year,month-1,1),count=new Date(year,month,0).getDate(),offset=(first.getDay()+6)%7,dates=new Set(data.tasks.map(t=>t.date));$('calendar-heading').textContent=year+' 年 '+month+' 月';const calendar=$('calendar');calendar.replaceChildren();for(let i=0;i<offset;i++)calendar.append(document.createElement('span'));for(let i=1;i<=count;i++){const d=year+'-'+String(month).padStart(2,'0')+'-'+String(i).padStart(2,'0'),b=document.createElement('button');b.textContent=i;b.type='button';b.className=(dates.has(d)?'has-record ':'')+(d===date?'selected':'');b.setAttribute('aria-label',d+(dates.has(d)?'，有完成记录':''));b.onclick=()=>{viewDate=d;calendarMonth=d.slice(0,7);if(owner){$('date').value=d;renderOwn();}else show(data,false);setView('daily');};calendar.append(b);}}
 function setView(view){if(view==='history'&&currentView!=='history')reviewDate=viewDate;currentView=view;$('daily-view').hidden=view!=='daily';$('history').hidden=view!=='history';$('nav-daily').classList.toggle('active',view==='daily');$('nav-history').classList.toggle('active',view==='history');if(visibleData)renderReview();}
 $('nav-daily').onclick=()=>setView('daily');$('nav-history').onclick=()=>setView('history');
-function renderRecords(target,data,owner,onlyDate=null){target.replaceChildren();const dates=new Set([...data.tasks.map(t=>t.date),...Object.keys(data.reflections)]);if(onlyDate)for(const d of dates)if(d!==onlyDate)dates.delete(d);for(const date of [...dates].sort().reverse()){const section=document.createElement('section');section.className='item';const heading=document.createElement('h3');heading.textContent=date;section.append(heading);for(const task of data.tasks.filter(t=>t.date===date)){const p=document.createElement('p');p.textContent=`✓ ${task.title} · ${task.category}${task.minutes?' · '+task.minutes+' 分钟':''}`;section.append(p);if(owner){const edit=document.createElement('button');edit.textContent='编辑';edit.onclick=async()=>{const title=prompt('修改事项内容',task.title);if(title===null)return;if(!title.trim()||title.trim().length>150){error('事项内容需为 1 至 150 个字符');return;}try{await writeRecordsLocked(store,[{type:'put-task',task:{...task,title:title.trim()}}]);renderOwn();schedule();}catch(e){error(e);}};section.append(edit);const del=document.createElement('button');del.textContent='删除';del.onclick=async()=>{try{if(confirm('删除这条记录？')){await writeRecordsLocked(store,[{type:'delete-task',id:task.id}]);renderOwn();schedule();}}catch(e){error(e);}};section.append(del);}}if(data.reflections[date]){const p=document.createElement('p');p.textContent='感想：'+data.reflections[date];section.append(p);}target.append(section);}if(!dates.size)target.textContent=onlyDate?'这一天还没有记录。':'还没有记录。';}
-function renderReview(){if(!visibleData)return;const range=weekRange(reviewDate);$('week-label').textContent=range.start+' — '+range.end;renderRecords($('records'),weekRecords(visibleData,reviewDate),selected?.toLowerCase()===login?.toLowerCase());if(!$('records').firstElementChild)$('records').textContent='这一周还没有记录。';}
+function renderRecords(target,data,owner,onlyDate=null){
+ target.replaceChildren();
+ const dates=new Set([...data.tasks.map(t=>t.date),...Object.keys(data.reflections)]);
+ if(onlyDate)for(const d of dates)if(d!==onlyDate)dates.delete(d);
+ for(const date of [...dates].sort().reverse()){
+  const section=document.createElement('section');section.className='item';
+  const heading=document.createElement('h3');heading.textContent=date;section.append(heading);
+  for(const task of data.tasks.filter(t=>t.date===date)){
+   const row=document.createElement('div');row.className='task-row';
+   const text=document.createElement('p');text.className='task-content';text.textContent=`✓ ${task.title} · ${task.category}${task.minutes?' · '+task.minutes+' 分钟':''}`;row.append(text);
+   if(owner){
+    const actions=document.createElement('div');actions.className='task-actions';
+    const edit=document.createElement('button');edit.textContent='编辑';edit.setAttribute('aria-label','编辑 '+task.title);
+    edit.onclick=async()=>{const title=prompt('修改事项内容',task.title);if(title===null)return;if(!title.trim()||title.trim().length>150){error('事项内容需为 1 至 150 个字符');return;}try{await writeRecordsLocked(store,[{type:'put-task',task:{...task,title:title.trim()}}]);renderOwn();schedule();}catch(e){error(e);}};
+    const del=document.createElement('button');del.textContent='删除';del.setAttribute('aria-label','删除 '+task.title);
+    del.onclick=async()=>{try{if(confirm('删除这条记录？')){await writeRecordsLocked(store,[{type:'delete-task',id:task.id}]);renderOwn();schedule();}}catch(e){error(e);}};
+    actions.append(edit,del);row.append(actions);
+   }
+   section.append(row);
+  }
+  if(data.reflections[date]){const p=document.createElement('p');p.textContent='感想：'+data.reflections[date];section.append(p);}
+  target.append(section);
+ }
+ if(!dates.size)target.textContent=onlyDate?'这一天还没有记录。':'还没有记录。';
+}
+function drawBars(target,items,label){
+ target.replaceChildren();const max=Math.max(1,...items.map(item=>item.count));
+ target.setAttribute('aria-label',label+'：'+items.map(item=>item.label+' '+item.count+' 项').join('，'));
+ for(const item of items){
+  const column=document.createElement('div');column.className='insight-column';
+  const count=document.createElement('span');count.className='insight-count';count.textContent=String(item.count);
+  const track=document.createElement('div');track.className='insight-track';
+  const bar=document.createElement('div');bar.className='insight-bar';bar.style.height=(item.count?Math.max(4,item.count/max*100):0)+'%';track.append(bar);
+  const caption=document.createElement('span');caption.className='insight-label';caption.textContent=item.label;
+  column.append(count,track,caption);target.append(column);
+ }
+}
+function renderReview(){
+ if(!visibleData)return;
+ const range=weekRange(reviewDate),week=weekRecords(visibleData,reviewDate),insight=weekInsights(visibleData,reviewDate);
+ $('week-label').textContent=range.start+' — '+range.end;
+ $('week-total').textContent=insight.total+' 项';
+ $('week-days').textContent=insight.recordedDays+' 天';
+ $('week-top').textContent=insight.topCategories.length?insight.topCategories.join('、'):'暂无';
+ drawBars($('category-chart'),insight.categories.map(({category,count})=>({label:category,count})),'本周各分类完成事项');
+ drawBars($('daily-chart'),insight.days.map(({day,count},i)=>({label:['周一','周二','周三','周四','周五','周六','周日'][i]+' '+day.slice(5),count})),'本周每天完成事项');
+ $('insights-empty').hidden=insight.total>0;
+ renderRecords($('records'),week,selected?.toLowerCase()===login?.toLowerCase());
+ if(!$('records').firstElementChild)$('records').textContent='这一周还没有记录。';
+}
 for(const [id,delta] of [['prev-week',-1],['next-week',1]])$(id).onclick=()=>{reviewDate=moveWeek(reviewDate,delta);renderReview();};
 function show(data,owner){visibleData=data;renderSummary(data,owner);$('daily-heading').textContent=viewDate===dayKey()?'今天的完成':viewDate+' 的完成';renderRecords($('daily-records'),data,owner,viewDate);renderReview();}
 
