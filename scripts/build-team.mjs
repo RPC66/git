@@ -1,0 +1,10 @@
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+const out='docs/team';await mkdir(out,{recursive:true});
+for(const file of ['index.html','style.css','team.mjs','team-sync.mjs'])await copyFile('team-src/'+file,out+'/'+file);
+const client=(await readFile('team-src/github-team.mjs','utf8')).replace("'../docs/sync-state.mjs'","'./sync-state.mjs'");await writeFile(out+'/github-team.mjs',client);
+for(const file of ['model.mjs','sync-state.mjs','storage.mjs'])await writeFile(out+'/'+file,(await readFile('docs/'+file,'utf8')).replaceAll('\r\n','\n'));
+await writeFile(out+'/manifest.webmanifest',JSON.stringify({name:'日有所成 · 成员记录',short_name:'日有所成',start_url:'./',scope:'./',display:'standalone',background_color:'#eef6fc',theme_color:'#287bb9',icons:[{src:'../app/icons/icon-192.png',sizes:'192x192',type:'image/png'},{src:'../app/icons/icon-512.png',sizes:'512x512',type:'image/png'}]}));
+const assets=['./','./index.html','./style.css','./team.mjs','./team-sync.mjs','./github-team.mjs','./model.mjs','./sync-state.mjs','./storage.mjs','./manifest.webmanifest'];const hash=createHash('sha256');for(const path of assets.slice(1))hash.update(await readFile(out+'/'+path));
+await writeFile(out+'/sw.js',`const P='daily-done-team:'+self.registration.scope+':',C=P+'${hash.digest('hex').slice(0,16)}',A=${JSON.stringify(assets)};self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A))));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(P)&&k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener('fetch',e=>{const u=new URL(e.request.url),s=new URL(self.registration.scope);if(e.request.method!=='GET'||u.origin!==s.origin||!u.pathname.startsWith(s.pathname))return;const p='./'+u.pathname.slice(s.pathname.length);if(A.includes(p))e.respondWith(caches.match(new Request(new URL(p,s),{method:'GET'})).then(c=>c||fetch(e.request)));});`);
+console.log('多人应用已生成。');
